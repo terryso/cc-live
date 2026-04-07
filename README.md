@@ -1,4 +1,4 @@
-# CC Watch
+# CC Live
 
 Real-time viewer for Claude Code / Codex sessions. Share a URL, let people watch your development process live.
 
@@ -14,7 +14,7 @@ Works with `claude`, `happy claude`, and `happy codex` — anything that writes 
 
 ```bash
 # Start the watcher
-cd ~/projects/cc-watch
+cd ~/projects/cc-live
 node server.js
 
 # In another terminal, create a public URL
@@ -27,7 +27,7 @@ Open `http://localhost:3456` locally, or share the cloudflare URL with anyone.
 
 | Env var | Default | Description |
 |---------|---------|-------------|
-| `CC_WATCH_PORT` | `3456` | Server port |
+| `CC_LIVE_PORT` | `3456` | Server port |
 | `CLAUDE_DIR` | `~/.claude` | Claude config directory |
 
 ## Limitations

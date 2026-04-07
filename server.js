@@ -23,7 +23,7 @@ try {
 } catch {}
 
 // ── Config ──────────────────────────────────────────────
-const PORT = process.env.CC_WATCH_PORT || 3456;
+const PORT = process.env.CC_LIVE_PORT || 3456;
 const CLAUDE_DIR = process.env.CLAUDE_DIR || join(homedir(), ".claude");
 const PROJECTS_DIR = join(CLAUDE_DIR, "projects");
 const MAX_PROJECTS = 50;
@@ -334,7 +334,7 @@ function isLocalRequest(req) {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}` || host === `[::1]:${PORT}`;
 }
 
-let detectedPublicOrigin = process.env.CC_WATCH_PUBLIC_URL || null; // e.g. https://xxx.ngrok-free.dev
+let detectedPublicOrigin = process.env.CC_LIVE_PUBLIC_URL || null; // e.g. https://xxx.ngrok-free.dev
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -501,7 +501,7 @@ try {
 
 // ── Startup ─────────────────────────────────────────────
 server.listen(PORT, () => {
-  console.log(`\n  CC Watch running at http://localhost:${PORT}\n`);
+  console.log(`\n  CC Live running at http://localhost:${PORT}\n`);
   console.log("  Share publicly:");
   console.log(`  cloudflared tunnel --url http://localhost:${PORT}\n`);
   discoverAndWatch();
