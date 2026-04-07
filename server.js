@@ -1,5 +1,5 @@
 import { createServer } from "http";
-import { readFile, stat, readdir } from "fs/promises";
+import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
@@ -64,6 +64,42 @@ function broadcast(event, data, projectName) {
 function broadcastViewerCount() {
   for (const [, c] of clients) {
     if (!c.res.writableEnded) sseSend(c.res, "viewer_count", { count: clients.size });
+  }
+}
+
+// ── Share token persistence ──────────────────────────────
+const SHARE_TOKENS_FILE = join(__dirname, "data", "share-tokens.json");
+
+async function loadShareTokens() {
+  try {
+    const content = await readFile(SHARE_TOKENS_FILE, "utf8");
+    const entries = JSON.parse(content);
+    for (const [token, info] of Object.entries(entries)) {
+      if (typeof token === "string" && info && typeof info.project === "string" && typeof info.createdAt === "number") {
+        shareTokens.set(token, info);
+      }
+    }
+    if (shareTokens.size > 0) console.log(`  Restored ${shareTokens.size} share token(s)`);
+  } catch (e) {
+    if (e instanceof SyntaxError) console.warn("  share-tokens.json corrupt, starting empty");
+  }
+}
+
+let _saveInProgress = false;
+let _saveQueued = false;
+
+async function saveShareTokens() {
+  if (_saveInProgress) { _saveQueued = true; return; }
+  _saveInProgress = true;
+  try {
+    const obj = Object.fromEntries(shareTokens);
+    await mkdir(join(__dirname, "data"), { recursive: true });
+    await writeFile(SHARE_TOKENS_FILE, JSON.stringify(obj, null, 2), "utf8");
+  } catch (e) {
+    console.error("  Failed to save share tokens:", e.message);
+  } finally {
+    _saveInProgress = false;
+    if (_saveQueued) { _saveQueued = false; await saveShareTokens(); }
   }
 }
 
@@ -330,6 +366,7 @@ const server = createServer(async (req, res) => {
     }
     const token = generateToken();
     shareTokens.set(token, { project: body.project, createdAt: Date.now() });
+    saveShareTokens();
     const shareUrl = `/?t=${token}`;
     console.log(`  Share created: ${body.project} -> ${token}`);
     res.writeHead(201, { "Content-Type": "application/json" });
@@ -344,6 +381,7 @@ const server = createServer(async (req, res) => {
     const t = deleteShareMatch[1];
     if (shareTokens.has(t)) {
       shareTokens.delete(t);
+      saveShareTokens();
       console.log(`  Share revoked: ${t}`);
       res.writeHead(204);
       res.end();
@@ -454,6 +492,7 @@ try {
 }
 
 // ── Startup ─────────────────────────────────────────────
+await loadShareTokens();
 server.listen(PORT, () => {
   console.log(`\n  CC Live running at http://localhost:${PORT}\n`);
   console.log("  Share publicly:");
