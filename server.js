@@ -61,6 +61,12 @@ function broadcast(event, data, projectName) {
   }
 }
 
+function broadcastViewerCount() {
+  for (const [, c] of clients) {
+    if (!c.res.writableEnded) sseSend(c.res, "viewer_count", { count: clients.size });
+  }
+}
+
 // ── Share token helpers ─────────────────────────────────
 function generateToken() {
   return randomBytes(12).toString("hex"); // 24-char hex
@@ -397,7 +403,8 @@ const server = createServer(async (req, res) => {
     if (share) sseSend(res, "share-info", { project: share.project });
     // Send public origin for share URL generation
     if (detectedPublicOrigin) sseSend(res, "public-origin", detectedPublicOrigin);
-    req.on("close", () => { clients.delete(clientId); });
+    req.on("close", () => { clients.delete(clientId); broadcastViewerCount(); });
+    broadcastViewerCount();
     return;
   }
 

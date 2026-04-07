@@ -178,13 +178,16 @@ function connect(){
     renderList();
     loadMessages();
   });
+  es.addEventListener('viewer_count', e => {
+    try { const { count } = JSON.parse(e.data); if (typeof count === 'number') document.getElementById('status').textContent = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`; } catch {}
+  });
   es.addEventListener('public-origin', e => {
     publicOrigin = e.data;
     // SSE data is JSON.stringify'd, so strings arrive quoted
     try { publicOrigin = JSON.parse(publicOrigin); } catch {}
   });
   es.onerror=()=>{document.getElementById('status').textContent='Reconnecting...';document.getElementById('dot').style.background='var(--red)'};
-  es.onopen=()=>{document.getElementById('status').textContent='Connected';document.getElementById('dot').style.background='var(--green)';renderList()};
+  es.onopen=()=>{document.getElementById('status').textContent='Live';document.getElementById('dot').style.background='var(--green)';renderList()};
 }
 
 function getProjects(){
