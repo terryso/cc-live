@@ -4,7 +4,8 @@
   "description": "Live viewer for Claude Code / Codex sessions via SSE + tunnel",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test --experimental-test-coverage test.js"
   },
   "type": "module"
 }

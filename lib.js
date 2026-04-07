@@ -1,0 +1,121 @@
+// ── Pure functions extracted from server.js for testability ──
+
+// JSONL parsing
+export const SKIP_TYPES = new Set(["queue-operation", "file-history-snapshot", "change", "last-prompt"]);
+
+// Sensitive data redaction patterns
+export const BASE_SENSITIVE_PATTERNS = [
+  // OpenAI / Anthropic API keys (sk-proj-xxx, sk-ant-xxx, sk-xxx)
+  { pattern: /\bsk-(?:proj|ant|api)?-[A-Za-z0-9_-]{20,}/g, replacement: "sk-***REDACTED***" },
+  // AWS Access Key IDs
+  { pattern: /\b(AKIA)[A-Z0-9]{16}\b/g, replacement: "$1***REDACTED***" },
+  // AWS Secret Access Keys (40-char base64 after known prefix patterns)
+  { pattern: /\b(AWS(?:SecretAccessKey|_SECRET_ACCESS_KEY)\s*[=:]\s*)['"]?[A-Za-z0-9/+=]{40}['"]?/gi, replacement: "$1***REDACTED***" },
+  // GitHub tokens (ghp_, gho_, ghu_, ghs_)
+  { pattern: /\bgh[opus]_[A-Za-z0-9]{36,}\b/g, replacement: "gh*_***REDACTED***" },
+  // Slack tokens (xoxb-, xoxp-, xoxr-, xoxa-, xoxs-)
+  { pattern: /\bxox[bpars]-[A-Za-z0-9-]{20,}/g, replacement: "xox*_***REDACTED***" },
+  // Google API keys
+  { pattern: /\bAIza[A-Za-z0-9_-]{30,}\b/g, replacement: "AIza***REDACTED***" },
+  // Bearer tokens (JWT-like: xxx.yyy.zzz)
+  { pattern: /\b(Bearer\s+)[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, replacement: "$1***REDACTED***" },
+  // Generic secrets in assignment context (password=, secret=, api_key=, etc.)
+  { pattern: /((?:password|passwd|secret|api[_-]?key|access[_-]?key|private[_-]?key|auth[_-]?token)\s*[=:]\s*)['"]?[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':",.<>?/\\|`~]{8,}/gi, replacement: "$1***REDACTED***" },
+  // Generic TOKEN assignment
+  { pattern: /((?:^|[\s"'`])(?:token|TOKEN)\s*[=:]\s*)['"]?[A-Za-z0-9_-]{16,}/gm, replacement: "$1***REDACTED***" },
+  // PEM private keys
+  { pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g, replacement: "-----BEGIN REDACTED PRIVATE KEY-----" },
+];
+
+// Load custom redaction rules from CC_LIVE_REDACT_<N> env vars
+export function loadCustomPatterns(env) {
+  const patterns = [];
+  for (let i = 1; ; i++) {
+    const val = env[`CC_LIVE_REDACT_${i}`];
+    if (!val) break;
+    if (val.startsWith("/") && val.includes("→")) {
+      const sep = val.lastIndexOf("/");
+      const regexStr = val.slice(1, sep);
+      const replacement = val.slice(sep + 1).replace(/^→/, "");
+      const flags = regexStr.match(/\/([gimsuy]*)$/);
+      const patternStr = flags ? regexStr.slice(0, regexStr.length - flags[0].length) : regexStr;
+      const flagStr = flags ? flags[1] : "g";
+      try {
+        patterns.push({ pattern: new RegExp(patternStr, flagStr), replacement });
+      } catch {}
+    } else {
+      const escaped = val.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      patterns.push({ pattern: new RegExp(escaped, "g"), replacement: "***REDACTED***" });
+    }
+  }
+  return patterns;
+}
+
+export function redactSensitive(text, patterns = BASE_SENSITIVE_PATTERNS) {
+  if (!text || typeof text !== "string") return text;
+  for (const { pattern, replacement } of patterns) {
+    text = text.replace(pattern, replacement);
+  }
+  return text;
+}
+
+export function parseLine(line) {
+  try {
+    const obj = JSON.parse(line);
+    if (SKIP_TYPES.has(obj.type)) return null;
+    return obj;
+  } catch { return null; }
+}
+
+export function extractDisplayMessage(raw, redactFn = redactSensitive) {
+  const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
+
+  if (type === "summary") {
+    return { uuid, timestamp, role: "system", display: { type: "summary", text: redactFn(message?.summary || "") }, isSidechain, cwd };
+  }
+
+  if (type === "user") {
+    const content = message?.content;
+    if (typeof content === "string") {
+      if (content.startsWith("<local-command-caveat>")) return null;
+      if (content.startsWith("<command-name>")) return null;
+      if (content.startsWith("<local-command-")) return null;
+      return { uuid, timestamp, role: "user", display: { type: "text", text: redactFn(content) }, isSidechain, cwd };
+    }
+    if (Array.isArray(content)) {
+      const parts = [];
+      let hasNonToolResult = false;
+      for (const block of content) {
+        if (block.type === "tool_result") {
+          const text = typeof block.content === "string" ? block.content
+            : Array.isArray(block.content) ? block.content.map(c => c.type === "text" ? c.text : c.type === "tool_reference" ? `[${c.tool_name}]` : "").join("\n")
+            : JSON.stringify(block.content);
+          parts.push({ type: "tool_result", toolUseId: block.tool_use_id, text: redactFn(text) });
+        } else if (block.type === "text") {
+          hasNonToolResult = true;
+          parts.push({ type: "text", text: redactFn(block.text) });
+        }
+      }
+      if (!parts.length) return null;
+      const role = hasNonToolResult ? "user" : "tool_response";
+      return { uuid, timestamp, role, display: { type: "blocks", parts }, isSidechain, cwd };
+    }
+    return null;
+  }
+
+  if (type === "assistant") {
+    const content = message?.content;
+    if (!Array.isArray(content)) return null;
+    const parts = [];
+    for (const block of content) {
+      if (block.type === "text") parts.push({ type: "text", text: redactFn(block.text) });
+      else if (block.type === "thinking") parts.push({ type: "thinking", text: redactFn(block.thinking) });
+      else if (block.type === "tool_use") {
+        parts.push({ type: "tool_use", toolName: block.name, toolCallId: block.id, args: redactFn(JSON.stringify(block.input)) });
+      }
+    }
+    if (!parts.length) return null;
+    return { uuid, timestamp, role: "assistant", display: { type: "blocks", parts, model: message?.model || "" }, isSidechain, cwd };
+  }
+  return null;
+}
