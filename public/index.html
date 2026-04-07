@@ -81,9 +81,9 @@
   .chat-bubble.active{display:block}
   .chat-toggle{width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .2s}
   .chat-toggle:hover{transform:scale(1.1)}
-  .chat-panel{position:absolute;bottom:60px;right:0;width:380px;height:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);display:none;flex-direction:column;background:var(--surface);border:1px solid var(--border)}
-  .chat-panel.open{display:flex}
-  chat-room{flex:1;width:100%;display:block}
+  .chat-panel{position:absolute;bottom:60px;right:0;width:380px;height:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);display:none;background:var(--surface);border:1px solid var(--border)}
+  .chat-panel.open{display:block}
+  .chat-panel iframe{width:100%;height:100%;border:0}
   @media(max-width:768px){.sidebar{width:200px}.chat-panel{width:calc(100vw - 48px);right:-12px}}
 </style>
 </head>
@@ -191,19 +191,11 @@ function connect(){
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('t');
     const chatPanel = document.getElementById('chatPanel');
-    if (token && !chatPanel.querySelector('chat-room')) {
+    if (token && !chatPanel.querySelector('iframe')) {
       document.getElementById('chatBubble').classList.add('active');
-      // Load Chitchatter SDK once
-      if (!document.getElementById('chitchatter-sdk')) {
-        const sdk = document.createElement('script');
-        sdk.id = 'chitchatter-sdk';
-        sdk.type = 'module';
-        sdk.src = 'https://chitchatter.im/sdk.js';
-        document.head.appendChild(sdk);
-      }
-      const chatRoom = document.createElement('chat-room');
-      chatRoom.setAttribute('room', token);
-      chatPanel.appendChild(chatRoom);
+      const iframe = document.createElement('iframe');
+      iframe.src = 'https://chitchatter.im/?room=' + encodeURIComponent(token);
+      chatPanel.appendChild(iframe);
     }
     renderList();
     loadMessages();
