@@ -2,11 +2,11 @@
 
 <div>
 
-[![GitHub License](https://img.shields.io/github/license/terryso/cc-live?style=flat-square)](https://github.com/terryso/cc-live/blob/main/LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
 [![GitHub Repo stars](https://img.shields.io/github/stars/terryso/cc-live?style=flat-square)](https://github.com/terryso/cc-live)
 [![GitHub Issues](https://img.shields.io/github/issues/terryso/cc-live?style=flat-square)](https://github.com/terryso/cc-live/issues)
 [![BMAD](https://bmad-badge.vercel.app/terryso/cc-live.svg)](https://github.com/bmad-code-org/BMAD-METHOD)
+[![GitHub License](https://img.shields.io/github/license/terryso/cc-live?style=flat-square)](https://github.com/terryso/cc-live/blob/main/LICENSE)
 
 </div>
 
