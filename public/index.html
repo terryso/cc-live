@@ -194,7 +194,8 @@ function connect(){
     if (token && !chatPanel.querySelector('iframe')) {
       document.getElementById('chatBubble').classList.add('active');
       const iframe = document.createElement('iframe');
-      iframe.src = 'https://chitchatter.im/?room=' + encodeURIComponent(token);
+      iframe.src = 'https://chitchatter.im/public/' + encodeURIComponent(token) + '?embed=1';
+      iframe.allow = 'camera;microphone;display-capture;fullscreen';
       chatPanel.appendChild(iframe);
     }
     renderList();
