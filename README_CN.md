@@ -16,7 +16,9 @@ Claude Code 会话的实时查看器。实时观看 AI 编码过程，通过 URL
 
 **零依赖** — 单文件 Node.js 服务器，无需安装。
 
-> **⚠️ 警告：目前未过滤敏感信息！** 对话内容将原样分享 — API 密钥、密码、Token 等敏感信息对任何持有分享链接的人可见。**分享前请务必检查会话内容。** 敏感信息过滤功能将在下个版本中添加。
+**实时围观：** [观看本项目的实时开发过程](https://magali-flockless-rufina.ngrok-free.dev/?t=6a13b430d6bed0f4bf9dc835)
+
+> **内置敏感信息过滤** — API 密钥、Token、密码等敏感信息会自动被遮蔽。但自动化过滤可能无法覆盖所有场景，**分享前仍请检查会话内容**。
 
 ## 功能
 
@@ -26,6 +28,7 @@ Claude Code 会话的实时查看器。实时观看 AI 编码过程，通过 URL
 - 通过 Token 保护的 URL 分享单个项目
 - 展示用户消息、助手回复、思考过程、工具调用及结果
 - 暗色主题，等宽字体，移动端适配
+- 自动过滤敏感信息（API 密钥、Token、密码、私钥等）
 
 ## 快速开始
 
@@ -90,6 +93,19 @@ Share Token 仅存储在内存中，重启服务后所有 Token 自动失效。
 | `CC_LIVE_PORT` | `3456` | 服务端口 |
 | `CLAUDE_DIR` | `~/.claude` | Claude 配置目录 |
 | `CC_LIVE_PUBLIC_URL` | — | 公网隧道地址，用于生成分享链接 |
+| `CC_LIVE_REDACT_<N>` | — | 自定义过滤规则（见下方说明） |
+
+### 自定义过滤规则
+
+通过 `CC_LIVE_REDACT_1`、`CC_LIVE_REDACT_2` 等环境变量添加内置规则之外的自定义匹配：
+
+```bash
+# 纯字符串 — 精确匹配，替换为 ***REDACTED***
+CC_LIVE_REDACT_1="my-company-internal-domain.com"
+
+# 正则表达式 — /pattern/→replacement
+CC_LIVE_REDACT_2="/\bmy-app-[a-z0-9]{12}\b/→***APP-ID***"
+```
 
 ## 工作原理
 

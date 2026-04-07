@@ -16,7 +16,9 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 
 **Zero dependencies** — single file Node.js server, no install needed.
 
-> **⚠️ WARNING: No sensitive data filtering yet!** Conversation content is shared as-is — API keys, passwords, tokens, and other secrets will be visible to anyone with the share link. **Review your session content before sharing.** Sensitive information filtering will be added in a future release.
+**Live Demo:** [Watch this project being built in real-time](https://magali-flockless-rufina.ngrok-free.dev/?t=6a13b430d6bed0f4bf9dc835)
+
+> **Built-in sensitive data filtering** — API keys, tokens, passwords, and other secrets are automatically redacted from displayed content. However, **please review your session content before sharing** as automated filtering may not catch everything.
 
 ## Features
 
@@ -26,6 +28,7 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 - Share individual projects via token-protected URLs
 - Displays user messages, assistant responses, thinking, tool calls and results
 - Dark theme, monospace, mobile-friendly
+- Automatic sensitive data redaction (API keys, tokens, passwords, private keys)
 
 ## Quick Start
 
@@ -90,6 +93,19 @@ Environment variables (set in `.env` or shell):
 | `CC_LIVE_PORT` | `3456` | Server port |
 | `CLAUDE_DIR` | `~/.claude` | Claude config directory |
 | `CC_LIVE_PUBLIC_URL` | — | Public tunnel URL for share links |
+| `CC_LIVE_REDACT_<N>` | — | Custom redaction rules (see below) |
+
+### Custom Redaction Rules
+
+Add custom patterns beyond the built-in ones via `CC_LIVE_REDACT_1`, `CC_LIVE_REDACT_2`, etc.:
+
+```bash
+# Plain string — exact match replaced with ***REDACTED***
+CC_LIVE_REDACT_1="my-company-internal-domain.com"
+
+# Regex — /pattern/→replacement
+CC_LIVE_REDACT_2="/\bmy-app-[a-z0-9]{12}\b/→***APP-ID***"
+```
 
 ## How It Works
 
