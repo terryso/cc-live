@@ -81,10 +81,6 @@ function parseLine(line) {
   } catch { return null; }
 }
 
-function truncate(str, max) {
-  if (!str) return "";
-  return str.length <= max ? str : str.slice(0, max) + "...";
-}
 
 function extractDisplayMessage(raw) {
   const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
@@ -108,7 +104,7 @@ function extractDisplayMessage(raw) {
           const text = typeof block.content === "string" ? block.content
             : Array.isArray(block.content) ? block.content.map(c => c.type === "text" ? c.text : c.type === "tool_reference" ? `[${c.tool_name}]` : "").join("\n")
             : JSON.stringify(block.content);
-          parts.push({ type: "tool_result", toolUseId: block.tool_use_id, text: truncate(text, 500) });
+          parts.push({ type: "tool_result", toolUseId: block.tool_use_id, text });
         } else if (block.type === "text") {
           parts.push({ type: "text", text: block.text });
         }
@@ -125,9 +121,9 @@ function extractDisplayMessage(raw) {
     const parts = [];
     for (const block of content) {
       if (block.type === "text") parts.push({ type: "text", text: block.text });
-      else if (block.type === "thinking") parts.push({ type: "thinking", text: truncate(block.thinking, 500) });
+      else if (block.type === "thinking") parts.push({ type: "thinking", text: block.thinking });
       else if (block.type === "tool_use") {
-        parts.push({ type: "tool_use", toolName: block.name, toolCallId: block.id, args: truncate(JSON.stringify(block.input), 300) });
+        parts.push({ type: "tool_use", toolName: block.name, toolCallId: block.id, args: JSON.stringify(block.input) });
       }
     }
     if (!parts.length) return null;
@@ -180,10 +176,17 @@ async function findAllSessionFiles() {
 }
 
 // ── Watch a single file for new content ─────────────────
-function watchFile(filePath, sessionId, projectName, fromOffset) {
+async function watchFile(filePath, sessionId, projectName, fromByteOffset) {
   if (watchedFiles.has(filePath)) return;
 
-  const meta = { offset: fromOffset, sessionId, projectName, isSubagent: false };
+  // Read current content to get correct char offset (byte offset != char offset for UTF-8)
+  let charOffset = 0;
+  try {
+    const current = await readFile(filePath, "utf8");
+    charOffset = current.length;
+  } catch {}
+
+  const meta = { byteOffset: fromByteOffset, charOffset, sessionId, projectName, isSubagent: false };
   watchedFiles.set(filePath, meta);
 
   if (!sessions.has(sessionId)) {
@@ -194,11 +197,12 @@ function watchFile(filePath, sessionId, projectName, fromOffset) {
   meta.interval = setInterval(async () => {
     try {
       const st = await stat(filePath);
-      if (st.size <= meta.offset) return;
+      if (st.size <= meta.byteOffset) return;
 
       const content = await readFile(filePath, "utf8");
-      const newContent = content.slice(meta.offset);
-      meta.offset = st.size;
+      const newContent = content.slice(meta.charOffset);
+      meta.charOffset = content.length;
+      meta.byteOffset = st.size;
 
       for (const line of newContent.split("\n")) {
         const trimmed = line.trim();
@@ -486,388 +490,14 @@ const server = createServer(async (req, res) => {
 });
 
 // ── Frontend ────────────────────────────────────────────
-const FRONTEND_HTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CC Watch</title>
-<style>
-  :root{--bg:#0a0a0a;--surface:#141414;--border:#262626;--text:#e5e5e5;--dim:#737373;--muted:#525252;--blue:#3b82f6;--blue-dim:#1e3a5f;--green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a78bfa;--orange:#f97316;--mono:'SF Mono','Fira Code','Menlo',monospace}
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6}
-  .app{display:flex;height:100vh}
-  .sidebar{width:280px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-  .sidebar-hd{padding:16px;border-bottom:1px solid var(--border)}
-  .sidebar-hd h1{font-size:14px;color:var(--blue);font-weight:600;letter-spacing:.5px}
-  .sidebar-hd .status{font-size:11px;color:var(--green);margin-top:4px;display:flex;align-items:center;gap:6px}
-  .sidebar-hd .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-  .slist{flex:1;overflow-y:auto;padding:8px}
-  .pitem{padding:10px 12px;border-radius:6px;cursor:pointer;margin-bottom:4px;border:1px solid transparent;transition:all .15s;display:flex;align-items:center;justify-content:space-between}
-  .pitem:hover{background:var(--border)}
-  .pitem.active{background:var(--blue-dim);border-color:var(--blue)}
-  .pitem-info{flex:1;min-width:0}
-  .pitem .pname{font-size:12px;word-break:break-all}
-  .pitem .pmeta{font-size:10px;color:var(--dim);margin-top:2px}
-  .share-btn{font-size:10px;background:var(--border);border:1px solid var(--dim);color:var(--dim);padding:2px 8px;border-radius:3px;cursor:pointer;flex-shrink:0;margin-left:8px}
-  .share-btn:hover{color:var(--green);border-color:var(--green)}
-  .main{flex:1;display:flex;flex-direction:column;min-width:0}
-  .main-hd{padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
-  .main-hd .title{font-size:13px}
-  .main-hd .path{font-size:11px;color:var(--dim)}
-  .msgs{flex:1;overflow-y:auto;padding:20px;scroll-behavior:smooth}
-  .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px;text-align:center}
-  .msg{margin-bottom:16px;max-width:900px}
-  .msg-role{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;font-weight:600}
-  .msg-role.user{color:var(--blue)}.msg-role.assistant{color:var(--green)}.msg-role.system{color:var(--yellow)}
-  .msg-body{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
-  .msg.user .msg-body{border-left:3px solid var(--blue)}
-  .msg.assistant .msg-body{border-left:3px solid var(--green)}
-  .msg-text{white-space:pre-wrap;word-break:break-word}
-  .msg-thinking{color:var(--dim);font-style:italic;font-size:12px}
-  .msg-thinking::before{content:"\\\\1F4AD  "}
-  .tool-call{margin:8px 0;padding:8px 12px;background:rgba(167,139,250,.08);border-left:3px solid var(--purple);border-radius:4px;font-size:12px}
-  .tool-call .tname{color:var(--purple);font-weight:600}
-  .tool-call .targs{color:var(--dim);margin-top:4px;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow:hidden}
-  .tool-result{margin:8px 0;padding:8px 12px;background:rgba(249,115,22,.06);border-left:3px solid var(--orange);border-radius:4px;font-size:11px;color:var(--dim);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:hidden}
-  .model-tag{display:inline-block;font-size:10px;color:var(--muted);background:var(--border);padding:1px 6px;border-radius:3px;margin-left:8px}
-  .ts{font-size:10px;color:var(--muted);margin-top:4px}
-  .session-divider{margin:20px 0;padding:8px 0;border-top:1px dashed var(--border);font-size:10px;color:var(--muted);text-align:center}
-  .load-more-btn{padding:12px;text-align:center;color:var(--blue);cursor:pointer;font-size:12px;border:1px dashed var(--border);border-radius:6px;margin:8px 0}
-  .load-more-btn:hover{background:var(--border)}
-  .scroll-nav{position:fixed;right:24px;z-index:50;width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;opacity:0;pointer-events:none}
-  .scroll-nav.visible{opacity:1;pointer-events:auto}
-  .scroll-nav:hover{background:var(--border);color:var(--text)}
-  .scroll-nav.to-top{bottom:24px}
-  .scroll-nav.to-bottom{bottom:68px}
-  .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}
-  .modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:480px;width:90%}
-  .modal h2{font-size:14px;color:var(--blue);margin-bottom:16px}
-  .modal .share-url{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:12px;color:var(--green);word-break:break-all;margin:12px 0}
-  .modal .btn-row{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
-  .modal button{padding:6px 16px;border-radius:6px;border:1px solid var(--border);background:var(--border);color:var(--text);cursor:pointer;font-family:var(--mono);font-size:12px}
-  .modal button:hover{border-color:var(--blue)}
-  .modal button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
-  .modal button.primary:hover{background:#2563eb}
-  .modal .hint{font-size:11px;color:var(--dim);margin-top:8px}
-  .shares-panel{border-top:1px solid var(--border);padding:8px;max-height:200px;overflow-y:auto}
-  .shares-panel .sh-title{font-size:10px;color:var(--dim);padding:4px 8px;text-transform:uppercase;letter-spacing:.5px}
-  .share-item{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;font-size:11px}
-  .share-item .sh-proj{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .share-item .sh-token{color:var(--dim);font-size:10px;margin:0 8px}
-  .revoke-btn{font-size:10px;background:none;border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:3px;cursor:pointer}
-  .revoke-btn:hover{background:var(--red);color:#fff}
-  @media(max-width:768px){.sidebar{width:200px}}
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-hd">
-      <h1>CC WATCH</h1>
-      <div class="status"><span class="dot" id="dot"></span><span id="status">Connecting...</span></div>
-    </div>
-    <div class="slist" id="slist"></div>
-    <div class="shares-panel" id="sharesPanel" style="display:none">
-      <div class="sh-title">Active Shares</div>
-      <div id="sharesList"></div>
-    </div>
-  </div>
-  <div class="main">
-    <div class="main-hd">
-      <div class="title" id="title">Select a project</div>
-      <div class="path" id="path"></div>
-    </div>
-    <div class="msgs" id="msgs"><div class="empty">Select a project to view sessions</div></div>
-    <button class="scroll-nav to-top" id="scrollToTop" aria-label="Scroll to top" onclick="document.getElementById('msgs').scrollTop=0">&#8593;</button>
-    <button class="scroll-nav to-bottom" id="scrollToBottom" aria-label="Scroll to bottom" onclick="document.getElementById('msgs').scrollTop=document.getElementById('msgs').scrollHeight">&#8595;</button>
-  </div>
-</div>
-<div id="modal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <h2 id="modalTitle">Share Project</h2>
-    <div id="modalBody"></div>
-    <div class="btn-row">
-      <button onclick="closeModal()">Close</button>
-      <button id="modalCopyBtn" class="primary" onclick="copyShareUrl()">Copy URL</button>
-    </div>
-  </div>
-</div>
-<script>
-const sessions = new Map();
-let activeProject = null;
-let loadedBefore = null;
-let hasMoreHistory = true;
-let isShareView = false;
-let shareProject = null;
-let currentShareUrl = "";
-let publicOrigin = null; // set by SSE event from server
-
-function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
-
-function getSSEUrl(){
-  const params = new URLSearchParams(window.location.search);
-  const t = params.get('t');
-  return '/events' + (t ? '?t=' + encodeURIComponent(t) : '');
+let FRONTEND_HTML = "";
+const FRONTEND_PATH = join(__dirname, "public", "index.html");
+try {
+  FRONTEND_HTML = await readFile(FRONTEND_PATH, "utf8");
+  console.log("  Loaded frontend from", FRONTEND_PATH);
+} catch (e) {
+  console.error("  Failed to load frontend:", e.message);
 }
-
-function connect(){
-  const es = new EventSource(getSSEUrl());
-  es.addEventListener('sessions', e => {
-    JSON.parse(e.data).forEach(s => {
-      if (!sessions.has(s.sessionId)) sessions.set(s.sessionId, {...s, messages:[]});
-      else {
-        const existing = sessions.get(s.sessionId);
-        existing.messageCount = s.messageCount;
-      }
-    });
-    renderList();
-    if (activeProject) renderProject();
-  });
-  es.addEventListener('session-new', e => {
-    const s = JSON.parse(e.data);
-    sessions.set(s.sessionId, {...s, messages:[]});
-    renderList();
-    // Auto-select if this project is active
-    if (activeProject === s.projectName) renderProject();
-  });
-  es.addEventListener('message', e => {
-    const m = JSON.parse(e.data);
-    const s = sessions.get(m.sessionId);
-    if(!s) return;
-    s.messages.push(m);
-    if(s.messages.length>500) s.messages=s.messages.slice(-300);
-    renderList();
-    if(activeProject && s.projectName === activeProject) appendMsg(m);
-  });
-  es.addEventListener('share-info', e => {
-    const info = JSON.parse(e.data);
-    if (info.error) {
-      document.getElementById('title').textContent = 'Access Denied';
-      document.getElementById('msgs').innerHTML = '<div class="empty">No access. A valid share token is required.</div>';
-      return;
-    }
-    isShareView = true;
-    shareProject = info.project;
-    activeProject = info.project;
-    renderList();
-    renderProject();
-  });
-  es.addEventListener('public-origin', e => {
-    publicOrigin = e.data;
-    // SSE data is JSON.stringify'd, so strings arrive quoted
-    try { publicOrigin = JSON.parse(publicOrigin); } catch {}
-  });
-  es.onerror=()=>{document.getElementById('status').textContent='Reconnecting...';document.getElementById('dot').style.background='var(--red)'};
-  es.onopen=()=>{document.getElementById('status').textContent='Connected';document.getElementById('dot').style.background='var(--green)';renderList()};
-}
-
-function getProjects(){
-  const groups = new Map();
-  for (const [, s] of sessions) {
-    if (s.isSubagent) continue;
-    const key = s.projectName || 'unknown';
-    if (!groups.has(key)) groups.set(key, { sessionCount: 0, totalMessages: 0 });
-    const g = groups.get(key);
-    g.sessionCount++;
-    g.totalMessages += s.messages.length;
-  }
-  return [...groups.entries()].sort((a, b) => b[1].totalMessages - a[1].totalMessages);
-}
-
-function renderList(){
-  const el = document.getElementById('slist');
-  const projects = getProjects();
-  el.innerHTML = '';
-  for (const [proj, info] of projects) {
-    const d = document.createElement('div');
-    d.className = 'pitem' + (proj === activeProject ? ' active' : '');
-    let inner = '<div class="pitem-info"><div class="pname">' + esc(proj) + '</div><div class="pmeta">' + info.sessionCount + ' sessions &middot; ' + info.totalMessages + ' msgs</div></div>';
-    if (!isShareView) {
-      inner += '<button class="share-btn" onclick="event.stopPropagation();createShare(\\''+esc(proj).replace(/'/g,"\\\\'")+'\\')">Share</button>';
-    }
-    d.innerHTML = inner;
-    d.onclick = () => selectProject(proj);
-    el.appendChild(d);
-  }
-  if (!isShareView) loadShares();
-}
-
-function selectProject(proj){
-  activeProject = proj;
-  loadedBefore = null;
-  hasMoreHistory = true;
-  document.getElementById('title').textContent = proj;
-  document.getElementById('path').textContent = '';
-  renderList();
-  loadMessages();
-}
-
-async function loadMessages(){
-  const el = document.getElementById('msgs');
-  const isFirstPage = !loadedBefore;
-  if (isFirstPage) el.innerHTML = '';
-  const params = new URLSearchParams({project: activeProject, limit: 50});
-  if (loadedBefore) params.set('before', loadedBefore);
-  try {
-    const r = await fetch('/api/project-messages?' + params);
-    const msgs = await r.json();
-    if (!msgs.length) { hasMoreHistory = false; if (!el.children.length || el.querySelector('.empty')) el.innerHTML = '<div class="empty">No messages yet</div>'; return; }
-    const existingBtn = el.querySelector('.load-more-btn');
-    if (existingBtn) existingBtn.remove();
-    const existingEmpty = el.querySelector('.empty');
-    if (existingEmpty) existingEmpty.remove();
-    const fragment = document.createDocumentFragment();
-    let lastSid = null;
-    for (const m of msgs) {
-      if (m._sid !== lastSid) {
-        lastSid = m._sid;
-        const div = document.createElement('div');
-        div.className = 'session-divider';
-        div.textContent = '--- session ' + m._sid.slice(0, 12) + '... ---';
-        fragment.appendChild(div);
-      }
-      fragment.appendChild(createMsgEl(m));
-    }
-    // Track oldest message timestamp for next page
-    const oldestTs = msgs[0].timestamp;
-    // Insert messages at top of container
-    el.insertBefore(fragment, el.firstChild);
-    // Add load-more at very top if there might be more
-    if (msgs.length >= 50) {
-      const btn = document.createElement('div');
-      btn.className = 'load-more-btn';
-      btn.textContent = 'Load more...';
-      btn.onclick = () => { loadMessages(); };
-      el.insertBefore(btn, el.firstChild);
-    } else {
-      hasMoreHistory = false;
-    }
-    // Set cursor for next page
-    loadedBefore = oldestTs;
-    // First page: scroll to bottom to show newest
-    if (isFirstPage) el.scrollTop = el.scrollHeight;
-  } catch {}
-}
-
-function appendMsg(m){
-  const el = document.getElementById('msgs');
-  const e = el.querySelector('.empty'); if (e) e.remove();
-  el.appendChild(createMsgEl(m));
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) el.scrollTop = el.scrollHeight;
-}
-
-function createMsgEl(m){
-  const d = document.createElement('div');
-  d.className = 'msg ' + (m.role || 'system');
-  let h = '';
-  if (m.display) {
-    if (m.display.type === 'text') h = '<div class="msg-text">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'summary') h = '<div class="msg-text" style="color:var(--yellow)">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'blocks') {
-      (m.display.parts || []).forEach(p => {
-        if (p.type === 'text') h += '<div class="msg-text">' + esc(p.text) + '</div>';
-        else if (p.type === 'thinking') h += '<div class="msg-thinking">' + esc(p.text) + '</div>';
-        else if (p.type === 'tool_use') h += '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>';
-        else if (p.type === 'tool_result') h += '<div class="tool-result">' + esc(p.text) + '</div>';
-      });
-      if (m.display.model) h += '<span class="model-tag">' + esc(m.display.model) + '</span>';
-    }
-  }
-  if (!h) { d.style.display = 'none'; return d; }
-  const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
-  d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
-  return d;
-}
-
-function appendMsg(m){
-  const el = document.getElementById('msgs');
-  const e = el.querySelector('.empty'); if (e) e.remove();
-  const d = document.createElement('div');
-  d.className = 'msg ' + (m.role || 'system');
-  let h = '';
-  if (m.display) {
-    if (m.display.type === 'text') h = '<div class="msg-text">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'summary') h = '<div class="msg-text" style="color:var(--yellow)">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'blocks') {
-      (m.display.parts || []).forEach(p => {
-        if (p.type === 'text') h += '<div class="msg-text">' + esc(p.text) + '</div>';
-        else if (p.type === 'thinking') h += '<div class="msg-thinking">' + esc(p.text) + '</div>';
-        else if (p.type === 'tool_use') h += '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>';
-        else if (p.type === 'tool_result') h += '<div class="tool-result">' + esc(p.text) + '</div>';
-      });
-      if (m.display.model) h += '<span class="model-tag">' + esc(m.display.model) + '</span>';
-    }
-  }
-  if (!h) return;
-  const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
-  d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
-  el.appendChild(d);
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) el.scrollTop = el.scrollHeight;
-}
-
-async function createShare(project) {
-  try {
-    const r = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) });
-    const data = await r.json();
-    if (!r.ok) { alert('Error: ' + data.error); return; }
-    const origin = publicOrigin || window.location.origin;
-    currentShareUrl = origin + data.url;
-    document.getElementById('modalTitle').textContent = 'Share: ' + project;
-    document.getElementById('modalBody').innerHTML = '<div class="hint">Share this URL to let others view this project\\'s sessions:</div><div class="share-url" id="shareUrlText">' + esc(currentShareUrl) + '</div><div class="hint">The project name is not visible in the URL. Revoke at any time from the sidebar.</div>';
-    document.getElementById('modal').style.display = 'flex';
-  } catch (e) { alert('Failed to create share: ' + e.message); }
-}
-
-function closeModal() { document.getElementById('modal').style.display = 'none'; }
-
-function copyShareUrl() {
-  navigator.clipboard.writeText(currentShareUrl).then(() => {
-    document.getElementById('modalCopyBtn').textContent = 'Copied!';
-    setTimeout(() => { document.getElementById('modalCopyBtn').textContent = 'Copy URL'; }, 2000);
-  });
-}
-
-async function loadShares() {
-  try {
-    const r = await fetch('/api/shares');
-    const shares = await r.json();
-    const panel = document.getElementById('sharesPanel');
-    const list = document.getElementById('sharesList');
-    if (shares.length === 0) { panel.style.display = 'none'; return; }
-    panel.style.display = 'block';
-    list.innerHTML = '';
-    for (const s of shares) {
-      const d = document.createElement('div');
-      d.className = 'share-item';
-      d.innerHTML = '<span class="sh-proj">' + esc(s.project) + '</span><span class="sh-token">' + s.token.slice(0, 8) + '...</span><button class="revoke-btn" onclick="revokeShare(\\'' + s.token + '\\')">Revoke</button>';
-      list.appendChild(d);
-    }
-  } catch {}
-}
-
-async function revokeShare(token) {
-  await fetch('/api/shares/' + token, { method: 'DELETE' });
-  loadShares();
-}
-
-connect();
-
-// Scroll navigation: show to-top at bottom, to-bottom at top
-const msgsEl = document.getElementById('msgs');
-const scrollBtnTop = document.getElementById('scrollToTop');
-const scrollBtnBottom = document.getElementById('scrollToBottom');
-msgsEl.addEventListener('scroll', () => {
-  const { scrollTop, scrollHeight, clientHeight } = msgsEl;
-  const atBottom = scrollHeight - scrollTop - clientHeight < 80;
-  const atTop = scrollTop < 80;
-  scrollBtnTop.classList.toggle('visible', atBottom && scrollTop > 80);
-  scrollBtnBottom.classList.toggle('visible', atTop && scrollHeight - clientHeight > 80);
-});
-</script>
-</body>
-</html>`;
 
 // ── Startup ─────────────────────────────────────────────
 server.listen(PORT, () => {
