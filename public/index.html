@@ -83,7 +83,7 @@
   .chat-toggle:hover{transform:scale(1.1)}
   .chat-panel{position:absolute;bottom:60px;right:0;width:380px;height:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);display:none;flex-direction:column;background:var(--surface);border:1px solid var(--border)}
   .chat-panel.open{display:flex}
-  .chat-panel iframe{flex:1;border:0;width:100%}
+  chat-room{flex:1;width:100%;display:block}
   @media(max-width:768px){.sidebar{width:200px}.chat-panel{width:calc(100vw - 48px);right:-12px}}
 </style>
 </head>
@@ -187,16 +187,23 @@ function connect(){
     shareProject = info.project;
     activeProject = info.project;
     document.getElementById('title').textContent = info.project;
-    // Show floating chat bubble with Tlk.io
+    // Show floating chat bubble with Chitchatter
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('t');
-    if (token && !document.getElementById('chatPanel').querySelector('iframe')) {
+    const chatPanel = document.getElementById('chatPanel');
+    if (token && !chatPanel.querySelector('chat-room')) {
       document.getElementById('chatBubble').classList.add('active');
-      const iframe = document.createElement('iframe');
-      iframe.src = 'https://chitchatter.im/room/' + encodeURIComponent(token);
-      iframe.allow = 'autoplay';
-      iframe.sandbox = 'allow-scripts allow-same-origin allow-popups';
-      document.getElementById('chatPanel').appendChild(iframe);
+      // Load Chitchatter SDK once
+      if (!document.getElementById('chitchatter-sdk')) {
+        const sdk = document.createElement('script');
+        sdk.id = 'chitchatter-sdk';
+        sdk.type = 'module';
+        sdk.src = 'https://chitchatter.im/sdk.js';
+        document.head.appendChild(sdk);
+      }
+      const chatRoom = document.createElement('chat-room');
+      chatRoom.setAttribute('room', token);
+      chatPanel.appendChild(chatRoom);
     }
     renderList();
     loadMessages();
