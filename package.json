@@ -1,0 +1,10 @@
+{
+  "name": "cc-watch",
+  "version": "1.0.0",
+  "description": "Live viewer for Claude Code / Codex sessions via SSE + tunnel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "type": "module"
+}
