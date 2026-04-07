@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   redactSensitive, parseLine, extractDisplayMessage,
+  validateShareTokenEntries,
   BASE_SENSITIVE_PATTERNS, loadCustomPatterns,
 } from "./lib.js";
 
@@ -295,5 +296,77 @@ describe("loadCustomPatterns", () => {
   it("loads multiple patterns", () => {
     const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "secret1", CC_LIVE_REDACT_2: "secret2" });
     assert.equal(patterns.length, 2);
+  });
+});
+
+// ── validateShareTokenEntries ─────────────────────────────
+
+describe("validateShareTokenEntries", () => {
+  it("accepts valid entries", () => {
+    const result = validateShareTokenEntries({
+      abc123: { project: "/Users/nick/foo", createdAt: 1712500000000 },
+      def456: { project: "/Users/nick/bar", createdAt: 1712600000000 },
+    });
+    assert.equal(result.size, 2);
+    assert.equal(result.get("abc123").project, "/Users/nick/foo");
+    assert.equal(result.get("def456").createdAt, 1712600000000);
+  });
+
+  it("rejects entries with missing project", () => {
+    const result = validateShareTokenEntries({
+      abc: { createdAt: 1712500000000 },
+    });
+    assert.equal(result.size, 0);
+  });
+
+  it("rejects entries with non-string project", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: 123, createdAt: 1712500000000 },
+    });
+    assert.equal(result.size, 0);
+  });
+
+  it("rejects entries with missing createdAt", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: "/foo" },
+    });
+    assert.equal(result.size, 0);
+  });
+
+  it("rejects entries with non-number createdAt", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: "/foo", createdAt: "2026-04-08" },
+    });
+    assert.equal(result.size, 0);
+  });
+
+  it("rejects null info", () => {
+    const result = validateShareTokenEntries({ abc: null });
+    assert.equal(result.size, 0);
+  });
+
+  it("rejects undefined info", () => {
+    const result = validateShareTokenEntries({ abc: undefined });
+    assert.equal(result.size, 0);
+  });
+
+  it("handles mixed valid and invalid entries", () => {
+    const result = validateShareTokenEntries({
+      good1: { project: "/foo", createdAt: 1000 },
+      bad1: { project: "/foo" },
+      bad2: null,
+      good2: { project: "/bar", createdAt: 2000 },
+    });
+    assert.equal(result.size, 2);
+    assert.ok(result.has("good1"));
+    assert.ok(result.has("good2"));
+    assert.ok(!result.has("bad1"));
+    assert.ok(!result.has("bad2"));
+  });
+
+  it("returns empty Map for empty object", () => {
+    const result = validateShareTokenEntries({});
+    assert.equal(result.size, 0);
+    assert.ok(result instanceof Map);
   });
 });

@@ -16,7 +16,7 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 
 **Zero dependencies** — single file Node.js server, no install needed.
 
-**Live Demo:** [Watch this project being built in real-time](https://magali-flockless-rufina.ngrok-free.dev/?t=f5dda9a251fcd6d1b2d4ba5b)
+**Live Demo:** [Watch this project being built in real-time](https://magali-flockless-rufina.ngrok-free.dev/?t=263643f46e602c190349472b)
 
 > **Built-in sensitive data filtering** — API keys, tokens, passwords, and other secrets are automatically redacted from displayed content. However, **please review your session content before sharing** as automated filtering may not catch everything.
 
@@ -82,7 +82,7 @@ CC_LIVE_PUBLIC_URL=https://your-subdomain.trycloudflare.com
 2. Copy the generated URL — it contains a random token, no project name exposed
 3. Revoke anytime from the **Active Shares** panel at the bottom of the sidebar
 
-Share tokens are stored in memory only — restarting the server invalidates all tokens.
+Share tokens persist across server restarts — they only expire when explicitly revoked.
 
 ## Configuration
 
@@ -118,7 +118,7 @@ CC_LIVE_REDACT_2="/\bmy-app-[a-z0-9]{12}\b/→***APP-ID***"
 
 - Read-only — viewers cannot interact with the session
 - Session data is in-memory only (up to 500 messages per session, then trimmed to 300)
-- Share tokens are lost on server restart
+- Share tokens persist across restarts (stored in `data/share-tokens.json`)
 
 ## License
 

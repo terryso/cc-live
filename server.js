@@ -4,7 +4,7 @@ import { join, dirname } from "path";
 import { homedir } from "os";
 import { randomBytes } from "crypto";
 import { fileURLToPath } from "url";
-import { SKIP_TYPES, BASE_SENSITIVE_PATTERNS, loadCustomPatterns, redactSensitive, parseLine, extractDisplayMessage } from "./lib.js";
+import { SKIP_TYPES, BASE_SENSITIVE_PATTERNS, loadCustomPatterns, redactSensitive, parseLine, extractDisplayMessage, validateShareTokenEntries } from "./lib.js";
 
 // ── Load .env ───────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -74,14 +74,15 @@ async function loadShareTokens() {
   try {
     const content = await readFile(SHARE_TOKENS_FILE, "utf8");
     const entries = JSON.parse(content);
-    for (const [token, info] of Object.entries(entries)) {
-      if (typeof token === "string" && info && typeof info.project === "string" && typeof info.createdAt === "number") {
-        shareTokens.set(token, info);
-      }
+    const valid = validateShareTokenEntries(entries);
+    for (const [token, info] of valid) {
+      shareTokens.set(token, info);
     }
     if (shareTokens.size > 0) console.log(`  Restored ${shareTokens.size} share token(s)`);
   } catch (e) {
-    if (e instanceof SyntaxError) console.warn("  share-tokens.json corrupt, starting empty");
+    if (e.code === "ENOENT") { /* first run */ }
+    else if (e instanceof SyntaxError) console.warn("  share-tokens.json corrupt, starting empty");
+    else console.warn("  Could not load share-tokens.json:", e.message);
   }
 }
 
@@ -91,16 +92,17 @@ let _saveQueued = false;
 async function saveShareTokens() {
   if (_saveInProgress) { _saveQueued = true; return; }
   _saveInProgress = true;
-  try {
-    const obj = Object.fromEntries(shareTokens);
-    await mkdir(join(__dirname, "data"), { recursive: true });
-    await writeFile(SHARE_TOKENS_FILE, JSON.stringify(obj, null, 2), "utf8");
-  } catch (e) {
-    console.error("  Failed to save share tokens:", e.message);
-  } finally {
-    _saveInProgress = false;
-    if (_saveQueued) { _saveQueued = false; await saveShareTokens(); }
-  }
+  do {
+    _saveQueued = false;
+    try {
+      await mkdir(join(__dirname, "data"), { recursive: true });
+      const obj = Object.fromEntries(shareTokens);
+      await writeFile(SHARE_TOKENS_FILE, JSON.stringify(obj, null, 2), "utf8");
+    } catch (e) {
+      console.error("  Failed to save share tokens:", e.message);
+    }
+  } while (_saveQueued);
+  _saveInProgress = false;
 }
 
 // ── Share token helpers ─────────────────────────────────

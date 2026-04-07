@@ -16,7 +16,7 @@ Claude Code 会话的实时查看器。实时观看 AI 编码过程，通过 URL
 
 **零依赖** — 单文件 Node.js 服务器，无需安装。
 
-**实时围观：** [观看本项目的实时开发过程](https://magali-flockless-rufina.ngrok-free.dev/?t=f5dda9a251fcd6d1b2d4ba5b)
+**实时围观：** [观看本项目的实时开发过程](https://magali-flockless-rufina.ngrok-free.dev/?t=263643f46e602c190349472b)
 
 > **内置敏感信息过滤** — API 密钥、Token、密码等敏感信息会自动被遮蔽。但自动化过滤可能无法覆盖所有场景，**分享前仍请检查会话内容**。
 
@@ -82,7 +82,7 @@ CC_LIVE_PUBLIC_URL=https://your-subdomain.trycloudflare.com
 2. 复制生成的 URL — 包含随机 Token，不暴露项目名
 3. 随时可在侧边栏底部的 **Active Shares** 面板中撤销
 
-Share Token 仅存储在内存中，重启服务后所有 Token 自动失效。
+Share Token 跨重启持久保存，只有主动撤销才会失效。
 
 ## 配置
 
@@ -118,7 +118,7 @@ CC_LIVE_REDACT_2="/\bmy-app-[a-z0-9]{12}\b/→***APP-ID***"
 
 - 只读 — 观看者无法与正在进行的会话交互
 - 会话数据仅存于内存（每个会话最多 500 条，超出后裁剪至 300 条）
-- 服务重启后 Share Token 丢失
+- Share Token 跨重启持久保存（存储在 `data/share-tokens.json`）
 
 ## 许可证
 

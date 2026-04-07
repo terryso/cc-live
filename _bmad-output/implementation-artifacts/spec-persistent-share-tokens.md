@@ -92,3 +92,10 @@ context:
 
 - 删除 share 后触发持久化
   [`server.js:383`](../../server.js#L383)
+
+### Review Findings
+
+- [x] [Review][Patch] `saveShareTokens()` 递归调用改为 while 循环 [`server.js:91`] — 防止栈溢出，同时消除 `_saveInProgress` 重入窗口
+- [x] [Review][Patch] `loadShareTokens()` 区分 ENOENT/SyntaxError/其他错误 [`server.js:83`] — 补充非 ENOENT 错误的日志输出
+- [x] [Review][Defer] 非原子写入 — 预存问题，deferred
+- [x] [Review][Defer] loadShareTokens 追加不清空 — 预存风险，deferred

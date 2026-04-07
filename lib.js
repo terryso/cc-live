@@ -67,6 +67,17 @@ export function parseLine(line) {
   } catch { return null; }
 }
 
+// Validate share token entries from persisted JSON
+export function validateShareTokenEntries(entries) {
+  const valid = new Map();
+  for (const [token, info] of Object.entries(entries)) {
+    if (typeof token === "string" && info && typeof info.project === "string" && typeof info.createdAt === "number") {
+      valid.set(token, info);
+    }
+  }
+  return valid;
+}
+
 export function extractDisplayMessage(raw, redactFn = redactSensitive) {
   const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
 

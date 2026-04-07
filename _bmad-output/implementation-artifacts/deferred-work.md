@@ -11,3 +11,4 @@
 
 - [ ] Atomic write for share-tokens.json — use write-to-temp-then-rename (`writeFile` to `.tmp` then `rename`) to prevent data loss on crash mid-write. Low risk for a local dev tool.
 - [ ] Redundant `mkdir` on every `saveShareTokens()` — could be called once at startup instead of every save. Minor performance concern.
+- [ ] `loadShareTokens` appends to Map without clearing — only called once at startup so latent, but would cause duplicates if ever called again.
