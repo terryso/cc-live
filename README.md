@@ -16,7 +16,7 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 
 **Zero dependencies** — single file Node.js server, no install needed.
 
-**Live Demo:** [Watch this project being built in real-time](https://magali-flockless-rufina.ngrok-free.dev/?t=6a13b430d6bed0f4bf9dc835)
+**Live Demo:** [Watch this project being built in real-time](https://magali-flockless-rufina.ngrok-free.dev/?t=f5dda9a251fcd6d1b2d4ba5b)
 
 > **Built-in sensitive data filtering** — API keys, tokens, passwords, and other secrets are automatically redacted from displayed content. However, **please review your session content before sharing** as automated filtering may not catch everything.
 

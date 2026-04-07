@@ -16,7 +16,7 @@ Claude Code 会话的实时查看器。实时观看 AI 编码过程，通过 URL
 
 **零依赖** — 单文件 Node.js 服务器，无需安装。
 
-**实时围观：** [观看本项目的实时开发过程](https://magali-flockless-rufina.ngrok-free.dev/?t=6a13b430d6bed0f4bf9dc835)
+**实时围观：** [观看本项目的实时开发过程](https://magali-flockless-rufina.ngrok-free.dev/?t=f5dda9a251fcd6d1b2d4ba5b)
 
 > **内置敏感信息过滤** — API 密钥、Token、密码等敏感信息会自动被遮蔽。但自动化过滤可能无法覆盖所有场景，**分享前仍请检查会话内容**。
 
