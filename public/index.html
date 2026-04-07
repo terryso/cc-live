@@ -77,10 +77,14 @@
   .share-item .sh-token{color:var(--dim);font-size:10px;margin:0 8px}
   .revoke-btn{font-size:10px;background:none;border:1px solid var(--red);color:var(--red);padding:1px 6px;border-radius:3px;cursor:pointer}
   .revoke-btn:hover{background:var(--red);color:#fff}
-  .chat-container{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
-  .chat-container.active{display:flex}
-  .chat-container iframe{flex:1;border:0;width:100%}
-  @media(max-width:768px){.sidebar{width:200px}}
+  .chat-bubble{position:fixed;bottom:24px;right:24px;z-index:90;display:none}
+  .chat-bubble.active{display:block}
+  .chat-toggle{width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;color:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .2s}
+  .chat-toggle:hover{transform:scale(1.1)}
+  .chat-panel{position:absolute;bottom:60px;right:0;width:380px;height:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.5);display:none;flex-direction:column;background:var(--surface);border:1px solid var(--border)}
+  .chat-panel.open{display:flex}
+  .chat-panel iframe{flex:1;border:0;width:100%}
+  @media(max-width:768px){.sidebar{width:200px}.chat-panel{width:calc(100vw - 48px);right:-12px}}
 </style>
 </head>
 <body>
@@ -91,7 +95,6 @@
       <div class="status"><span class="dot" id="dot"></span><span id="status">Connecting...</span></div>
     </div>
     <div class="slist" id="slist"></div>
-    <div class="chat-container" id="chatContainer"></div>
     <div class="shares-panel" id="sharesPanel" style="display:none">
       <div class="sh-title">Active Shares</div>
       <div id="sharesList"></div>
@@ -111,6 +114,10 @@
     <button class="scroll-nav to-top" id="scrollToTop" aria-label="Scroll to top" onclick="document.getElementById('msgs').scrollTop=0">&#8593;</button>
     <button class="scroll-nav to-bottom" id="scrollToBottom" aria-label="Scroll to bottom" onclick="document.getElementById('msgs').scrollTop=document.getElementById('msgs').scrollHeight">&#8595;</button>
   </div>
+</div>
+<div class="chat-bubble" id="chatBubble">
+  <div class="chat-panel" id="chatPanel"></div>
+  <button class="chat-toggle" id="chatToggle" title="Chat">&#128172;</button>
 </div>
 <div id="modal" class="modal-overlay" style="display:none">
   <div class="modal">
@@ -180,18 +187,16 @@ function connect(){
     shareProject = info.project;
     activeProject = info.project;
     document.getElementById('title').textContent = info.project;
-    // Replace sidebar with Tlk.io chat using share token as room
+    // Show floating chat bubble with Tlk.io
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('t');
-    const chatContainer = document.getElementById('chatContainer');
-    if (token && !chatContainer.querySelector('iframe')) {
-      document.getElementById('slist').style.display = 'none';
-      chatContainer.classList.add('active');
+    if (token && !document.getElementById('chatPanel').querySelector('iframe')) {
+      document.getElementById('chatBubble').classList.add('active');
       const iframe = document.createElement('iframe');
       iframe.src = 'https://tlk.io/' + encodeURIComponent(token);
       iframe.allow = 'autoplay';
       iframe.sandbox = 'allow-scripts allow-same-origin allow-popups';
-      chatContainer.appendChild(iframe);
+      document.getElementById('chatPanel').appendChild(iframe);
     }
     renderList();
     loadMessages();
@@ -421,6 +426,12 @@ function addExpandButtons(container) {
 }
 
 connect();
+
+// Chat bubble toggle
+document.getElementById('chatToggle').addEventListener('click', () => {
+  const panel = document.getElementById('chatPanel');
+  panel.classList.toggle('open');
+});
 
 // Scroll navigation: show to-top at bottom, to-bottom at top
 const msgsEl = document.getElementById('msgs');
