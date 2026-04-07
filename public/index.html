@@ -193,7 +193,7 @@ function connect(){
     if (token && !document.getElementById('chatPanel').querySelector('iframe')) {
       document.getElementById('chatBubble').classList.add('active');
       const iframe = document.createElement('iframe');
-      iframe.src = 'https://tlk.io/' + encodeURIComponent(token);
+      iframe.src = 'https://chitchatter.im/room/' + encodeURIComponent(token);
       iframe.allow = 'autoplay';
       iframe.sandbox = 'allow-scripts allow-same-origin allow-popups';
       document.getElementById('chatPanel').appendChild(iframe);
