@@ -32,7 +32,7 @@
   .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:14px;text-align:center}
   .msg{margin-bottom:16px;width:100%}
   .msg-role{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;font-weight:600}
-  .msg-role.user{color:var(--blue)}.msg-role.assistant{color:var(--green)}.msg-role.system{color:var(--yellow)}
+  .msg-role.user{color:var(--blue)}.msg-role.assistant{color:var(--green)}.msg-role.system{color:var(--yellow)}.msg-role.tool_response{color:var(--orange)}
   .msg-body{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;overflow:hidden;position:relative}
   .msg-body.collapsed{max-height:300px}
   .msg-body.collapsed::after{content:'';position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,rgba(20,20,20,.95));pointer-events:none}
@@ -81,7 +81,7 @@
 <div class="app">
   <div class="sidebar" id="sidebar">
     <div class="sidebar-hd">
-      <h1>CC WATCH</h1>
+      <h1>CC LIVE</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="status">Connecting...</span></div>
     </div>
     <div class="slist" id="slist"></div>
@@ -226,6 +226,10 @@ async function loadMessages(){
   if (isFirstPage) el.innerHTML = '';
   const params = new URLSearchParams({project: activeProject, limit: 50});
   if (loadedBefore) params.set('before', loadedBefore);
+  // Include share token for API auth
+  const urlParams = new URLSearchParams(window.location.search);
+  const t = urlParams.get('t');
+  if (t) params.set('t', t);
   try {
     const r = await fetch('/api/project-messages?' + params);
     const msgs = await r.json();

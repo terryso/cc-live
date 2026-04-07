@@ -99,6 +99,7 @@ function extractDisplayMessage(raw) {
     }
     if (Array.isArray(content)) {
       const parts = [];
+      let hasNonToolResult = false;
       for (const block of content) {
         if (block.type === "tool_result") {
           const text = typeof block.content === "string" ? block.content
@@ -106,11 +107,14 @@ function extractDisplayMessage(raw) {
             : JSON.stringify(block.content);
           parts.push({ type: "tool_result", toolUseId: block.tool_use_id, text });
         } else if (block.type === "text") {
+          hasNonToolResult = true;
           parts.push({ type: "text", text: block.text });
         }
       }
       if (!parts.length) return null;
-      return { uuid, timestamp, role: "user", display: { type: "blocks", parts }, isSidechain, cwd };
+      // Pure tool_result responses should show as "tool_response", not "user"
+      const role = hasNonToolResult ? "user" : "tool_response";
+      return { uuid, timestamp, role, display: { type: "blocks", parts }, isSidechain, cwd };
     }
     return null;
   }
