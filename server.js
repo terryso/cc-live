@@ -479,19 +479,16 @@ const server = createServer(async (req, res) => {
   }
 
   // ── Serve frontend ────────────────────────────────────
-  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-  res.end(FRONTEND_HTML);
+  const FRONTEND_PATH = join(__dirname, "public", "index.html");
+  try {
+    const html = await readFile(FRONTEND_PATH, "utf8");
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(html);
+  } catch (e) {
+    res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("Failed to load frontend");
+  }
 });
-
-// ── Frontend ────────────────────────────────────────────
-let FRONTEND_HTML = "";
-const FRONTEND_PATH = join(__dirname, "public", "index.html");
-try {
-  FRONTEND_HTML = await readFile(FRONTEND_PATH, "utf8");
-  console.log("  Loaded frontend from", FRONTEND_PATH);
-} catch (e) {
-  console.error("  Failed to load frontend:", e.message);
-}
 
 // ── Startup ─────────────────────────────────────────────
 await loadShareTokens();
