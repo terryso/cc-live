@@ -207,6 +207,46 @@
   }
   .share-btn:hover { color: var(--blue); border-color: var(--blue); background: var(--blue-dim) }
 
+  /* Filter bar */
+  .filter-bar {
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: none;
+    align-items: center;
+    gap: 6px;
+    transition: background var(--transition);
+  }
+  .filter-bar.visible { display: flex }
+  .filter-bar .filter-label {
+    font-size: 11px;
+    color: var(--dim);
+    font-weight: 500;
+    margin-right: 4px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .filter-chip {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all var(--transition);
+  }
+  .filter-chip:hover { background: var(--surface-hover); color: var(--text); border-color: var(--muted) }
+  .filter-chip.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue) }
+  .filter-bar .filter-count {
+    font-size: 10px;
+    color: var(--dim);
+    margin-left: auto;
+    font-family: var(--mono);
+  }
+
   /* Main */
   .main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative }
   .main-hd {
@@ -659,6 +699,15 @@
         <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
     </div>
+    <div class="filter-bar" id="filterBar">
+      <span class="filter-label">Filter</span>
+      <button class="filter-chip active" data-role="all">All</button>
+      <button class="filter-chip" data-role="user">User</button>
+      <button class="filter-chip" data-role="assistant">Assistant</button>
+      <button class="filter-chip" data-role="tool_response">Tool</button>
+      <button class="filter-chip" data-role="system">System</button>
+      <span class="filter-count" id="filterCount"></span>
+    </div>
     <div class="msgs" id="msgs"><div class="empty">Select a project to view sessions</div></div>
     <button type="button" class="scroll-nav to-top" id="scrollToTop" aria-label="Scroll to top" onclick="document.getElementById('msgs').scrollTop=0">&#8593;</button>
     <button type="button" class="scroll-nav to-bottom" id="scrollToBottom" aria-label="Scroll to bottom" onclick="document.getElementById('msgs').scrollTop=document.getElementById('msgs').scrollHeight">&#8595;</button>
@@ -848,13 +897,18 @@ function selectProject(proj){
   activeProject = proj;
   loadedBefore = null;
   hasMoreHistory = true;
+  activeFilter = 'all';
+  filterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.role === 'all'));
+  filterCount.textContent = '';
   document.getElementById('title').textContent = proj;
   document.getElementById('path').textContent = '';
+  showFilterBar();
   renderList();
   loadMessages();
 }
 
 async function loadMessages(){
+  showFilterBar();
   const el = document.getElementById('msgs');
   const isFirstPage = !loadedBefore;
   if (isFirstPage) el.innerHTML = '';
@@ -887,16 +941,21 @@ async function loadMessages(){
     const oldestTs = msgs[0].timestamp;
     el.insertBefore(fragment, el.firstChild);
     addExpandButtons(el);
+    applyFilter();
+    loadedBefore = oldestTs;
+    if (msgs.length < 50) hasMoreHistory = false;
+    // Auto-load next page if filter hid all newly loaded messages
+    if (activeFilter !== 'all' && hasMoreHistory) {
+      const hasMatch = msgs.some(m => (m.role || 'system') === activeFilter);
+      if (!hasMatch) { loadMessages(); return; }
+    }
     if (msgs.length >= 50) {
       const btn = document.createElement('div');
       btn.className = 'load-more-btn';
       btn.textContent = 'Load more...';
       btn.onclick = () => { loadMessages(); };
       el.insertBefore(btn, el.firstChild);
-    } else {
-      hasMoreHistory = false;
     }
-    loadedBefore = oldestTs;
     if (isFirstPage) {
       el.scrollTop = el.scrollHeight;
       // Mark active if last message is within timeout
@@ -949,8 +1008,16 @@ function appendMsg(m){
   if (!h) return;
   const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
   d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body collapsible collapsed">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
+  // Apply current filter
+  if (activeFilter !== 'all' && !d.classList.contains(activeFilter)) d.style.display = 'none';
   el.appendChild(d);
   addExpandButtons(d);
+  // Update count
+  if (activeFilter !== 'all') {
+    const total = el.querySelectorAll('.msg').length;
+    const visible = el.querySelectorAll('.msg.' + activeFilter).length;
+    filterCount.textContent = visible + '/' + total;
+  }
   const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
   if (distFromBottom < el.clientHeight) el.scrollTop = el.scrollHeight;
 }
@@ -1066,6 +1133,40 @@ document.getElementById('chatToggle').addEventListener('click', () => {
   const panel = document.getElementById('chatPanel');
   panel.classList.toggle('open');
 });
+
+// Role filter
+let activeFilter = 'all';
+const filterBar = document.getElementById('filterBar');
+const filterCount = document.getElementById('filterCount');
+
+filterBar.addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  const role = chip.dataset.role;
+  if (role === activeFilter) return;
+  activeFilter = role;
+  filterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.role === role));
+  applyFilter();
+});
+
+function applyFilter() {
+  const msgsEl = document.getElementById('msgs');
+  const msgEls = msgsEl.querySelectorAll('.msg');
+  let visible = 0, total = 0;
+  msgEls.forEach(el => {
+    total++;
+    const match = activeFilter === 'all' || el.classList.contains(activeFilter);
+    el.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const dividers = msgsEl.querySelectorAll('.session-divider');
+  dividers.forEach(d => d.style.display = activeFilter === 'all' ? '' : 'none');
+  filterCount.textContent = activeFilter === 'all' ? '' : visible + '/' + total;
+}
+
+function showFilterBar() {
+  filterBar.classList.add('visible');
+}
 
 // Scroll navigation
 const msgsEl = document.getElementById('msgs');
