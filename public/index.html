@@ -556,6 +556,36 @@
   .msg-text.md-render pre code {
     background: none; padding: 0; font-size: 12px; line-height: 1.5;
   }
+  /* Diff rendering */
+  .msg-text.md-render pre.diff-block {
+    padding: 0; overflow-x: auto;
+  }
+  .msg-text.md-render pre.diff-block code {
+    display: block; padding: 12px 0;
+    counter-reset: diff-line;
+  }
+  .msg-text.md-render .diff-line {
+    display: block; padding: 0 12px 0 48px; position: relative; min-height: 1.5em;
+    white-space: pre;
+  }
+  .msg-text.md-render .diff-line::before {
+    content: counter(diff-line); counter-increment: diff-line;
+    position: absolute; left: 0; width: 38px; text-align: right;
+    color: var(--dim); font-size: 11px; user-select: none;
+  }
+  .msg-text.md-render .diff-add { background: rgba(22, 163, 74, .12); }
+  .msg-text.md-render .diff-del { background: rgba(220, 38, 38, .12); }
+  [data-theme="dark"] .msg-text.md-render .diff-add { background: rgba(74, 222, 128, .15); }
+  [data-theme="dark"] .msg-text.md-render .diff-del { background: rgba(248, 113, 113, .15); }
+  .msg-text.md-render .diff-hunk {
+    background: rgba(37, 99, 235, .1); color: var(--blue); font-weight: 500;
+    counter-increment: none;
+  }
+  .msg-text.md-render .diff-hunk::before { content: ''; counter-increment: none; }
+  @media (max-width: 768px) {
+    .msg-text.md-render .diff-line { padding-left: 12px; }
+    .msg-text.md-render .diff-line::before { display: none; }
+  }
   .msg-text.md-render table {
     border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 12px;
   }
@@ -650,7 +680,35 @@ let publicOrigin = null;
 
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
 
-marked.use({ breaks: true, gfm: true, renderer: { code({ text, lang }) { const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'; return '<pre><code class="hljs language-' + language + '">' + hljs.highlight(text, { language }).value + '</code></pre>'; } } });
+function isDiffContent(lang, text) {
+  if (lang === 'diff') return true;
+  if (lang && lang !== 'plaintext') return false;
+  const lines = text.split('\n');
+  const hasHunk = lines.some(l => l.startsWith('@@'));
+  let add = 0, del = 0;
+  for (const l of lines) {
+    if (l.startsWith('+') && !l.startsWith('+++')) add++;
+    else if (l.startsWith('-') && !l.startsWith('---')) del++;
+  }
+  if (hasHunk) return (add + del) > 0;
+  return add > 0 && del > 0 && (add + del) / lines.length > 0.3;
+}
+function renderDiff(text) {
+  const lines = text.split('\n');
+  const out = lines.map(raw => {
+    const e = esc(raw);
+    if (raw.startsWith('@@')) return '<span class="diff-line diff-hunk">' + e + '</span>';
+    if (raw.startsWith('+')) return '<span class="diff-line diff-add">' + e + '</span>';
+    if (raw.startsWith('-')) return '<span class="diff-line diff-del">' + e + '</span>';
+    return '<span class="diff-line">' + e + '</span>';
+  });
+  return '<pre class="diff-block"><code class="hljs language-diff">' + out.join('') + '</code></pre>';
+}
+marked.use({ breaks: true, gfm: true, renderer: { code({ text, lang }) {
+  if (isDiffContent(lang, text)) return renderDiff(text);
+  const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+  return '<pre><code class="hljs language-' + language + '">' + hljs.highlight(text, { language }).value + '</code></pre>';
+} } });
 var _mdAllowedTags = ['p','h1','h2','h3','h4','h5','h6','ul','ol','li','blockquote','pre','code','em','strong','del','a','table','thead','tbody','tr','th','td','hr','br','img','span','sup','sub','details','summary'];
 var _mdAllowedAttr = ['href','alt','title','class','id','target','rel'];
 function renderMd(text, isMarkdown) {
