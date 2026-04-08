@@ -402,6 +402,37 @@
   .scroll-nav.visible { opacity: 1; pointer-events: auto }
   .scroll-nav:hover { background: var(--surface-hover); color: var(--text) }
 
+  /* Activity indicator */
+  .activity-bar {
+    padding: 10px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    transition: background var(--transition);
+    min-height: 42px;
+  }
+  .activity-bar.visible { display: flex }
+  .activity-dots { display: flex; gap: 4px; align-items: center }
+  .activity-dots span {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    animation: dot-bounce 1.4s infinite ease-in-out both;
+  }
+  .activity-dots.user span { background: var(--blue) }
+  .activity-dots.ai span { background: var(--green) }
+  .activity-dots span:nth-child(1) { animation-delay: 0s }
+  .activity-dots span:nth-child(2) { animation-delay: .16s }
+  .activity-dots span:nth-child(3) { animation-delay: .32s }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { opacity: .25; transform: scale(.8) }
+    40% { opacity: 1; transform: scale(1) }
+  }
+  .activity-bar .activity-icon { font-size: 15px }
+
   /* Modal */
   .modal-overlay {
     position: fixed;
@@ -610,6 +641,7 @@
     .mobile-menu-btn { display: flex }
     .msgs { padding: 16px }
     .main-hd { padding: 12px 16px }
+    .activity-bar { padding: 8px 16px }
     .chat-panel { width: calc(100vw - 48px); right: -12px }
     .scroll-nav { right: 24px }
   }
@@ -649,6 +681,7 @@
         <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
     </div>
+    <div class="activity-bar" id="activityBar"><span class="activity-icon" id="activityIcon"></span><span id="activityText"></span><div class="activity-dots" id="activityDots"><span></span><span></span><span></span></div></div>
     <div class="msgs" id="msgs"><div class="empty">Select a project to view sessions</div></div>
     <button type="button" class="scroll-nav to-top" id="scrollToTop" aria-label="Scroll to top" onclick="document.getElementById('msgs').scrollTop=0">&#8593;</button>
     <button type="button" class="scroll-nav to-bottom" id="scrollToBottom" aria-label="Scroll to bottom" onclick="document.getElementById('msgs').scrollTop=document.getElementById('msgs').scrollHeight">&#8595;</button>
@@ -670,6 +703,7 @@
 </div>
 <script>
 const sessions = new Map();
+const lastRole = new Map(); // project -> last message role
 let activeProject = null;
 let loadedBefore = null;
 let hasMoreHistory = true;
@@ -679,6 +713,36 @@ let currentShareUrl = "";
 let publicOrigin = null;
 
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+
+let _activityTimer = null;
+const ACTIVITY_TIMEOUT = 60000; // 60s no new message → hide indicator
+
+function updateActivityBar(project, role) {
+  lastRole.set(project, role);
+  if (project !== activeProject) return;
+  clearTimeout(_activityTimer);
+  const bar = document.getElementById('activityBar');
+  const icon = document.getElementById('activityIcon');
+  const text = document.getElementById('activityText');
+  const dots = document.getElementById('activityDots');
+  if (!role) { bar.classList.remove('visible'); return; }
+  bar.classList.add('visible');
+  if (role === 'assistant') {
+    icon.textContent = '\u270D\uFE0F';
+    text.textContent = 'User \u6B63\u5728\u8F93\u5165...';
+    dots.className = 'activity-dots user';
+  } else {
+    icon.textContent = '\u26A1';
+    text.textContent = 'AI \u6B63\u5728\u601D\u8003...';
+    dots.className = 'activity-dots ai';
+  }
+  // Auto-scroll to show indicator
+  const msgsEl = document.getElementById('msgs');
+  const distFromBottom = msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight;
+  if (distFromBottom < msgsEl.clientHeight) msgsEl.scrollTop = msgsEl.scrollHeight;
+  // Auto-hide after timeout
+  _activityTimer = setTimeout(() => { bar.classList.remove('visible'); }, ACTIVITY_TIMEOUT);
+}
 
 function isDiffContent(lang, text) {
   if (lang === 'diff') return true;
@@ -749,7 +813,7 @@ function connect(){
     s.messages.push(m);
     if(s.messages.length>500) s.messages=s.messages.slice(-300);
     renderList();
-    if(activeProject && s.projectName === activeProject) appendMsg(m);
+    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateActivityBar(s.projectName, m.role); }
   });
   es.addEventListener('share-info', e => {
     const info = JSON.parse(e.data);
@@ -823,6 +887,7 @@ function selectProject(proj){
   hasMoreHistory = true;
   document.getElementById('title').textContent = proj;
   document.getElementById('path').textContent = '';
+  updateActivityBar(proj, null);
   renderList();
   loadMessages();
 }
