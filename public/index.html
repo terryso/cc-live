@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" integrity="sha384-eFTL69TLRZTkNfYZOLM+G04821K1qZao/4QLJbet1pP4tcF+fdXq/9CdqAbWRl/L" crossorigin="anonymous" id="hljs-light">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" integrity="sha384-wH75j6z1lH97ZOpMOInqhgKzFkAInZPPSPlZpYKYTOqsaizPvhQZmAtLcPKXpLyH" crossorigin="anonymous" id="hljs-dark" disabled>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js" integrity="sha384-H+hy9ULve6xfxRkWIh/YOtvDdpXgV2fmAGQkIDTxIgZwNoaoBal14Di2YTMR6MzR" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" integrity="sha384-RH2xi4eIQ/gjtbs9fUXM68sLSi99C7ZWBRX1vDrVv6GQXRibxXLbwO2NGZB74MbU" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.2.5/purify.min.js" integrity="sha384-qSFej5dZNviyoPgYJ5+Xk4bEbX8AYddxAHPuzs1aSgRiXxJ3qmyWNaPsRkpv/+x5" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg: #fafafa;
@@ -522,6 +527,47 @@
   .sidebar-overlay.active { display: block }
 
   /* Mobile responsive */
+  /* Markdown rendered content */
+  .msg-text.md-render { white-space: normal }
+  .msg-text.md-render p { margin: 0 0 8px }
+  .msg-text.md-render p:last-child { margin-bottom: 0 }
+  .msg-text.md-render h1,.msg-text.md-render h2,.msg-text.md-render h3,
+  .msg-text.md-render h4,.msg-text.md-render h5,.msg-text.md-render h6 {
+    margin: 12px 0 6px; font-weight: 600; line-height: 1.3;
+  }
+  .msg-text.md-render h1 { font-size: 1.4em }
+  .msg-text.md-render h2 { font-size: 1.25em }
+  .msg-text.md-render h3 { font-size: 1.1em }
+  .msg-text.md-render ul,.msg-text.md-render ol { margin: 6px 0; padding-left: 20px }
+  .msg-text.md-render li { margin: 2px 0 }
+  .msg-text.md-render blockquote {
+    margin: 8px 0; padding: 6px 12px;
+    border-left: 3px solid var(--border); color: var(--text-secondary);
+    background: var(--surface-hover); border-radius: 4px;
+  }
+  .msg-text.md-render code {
+    font-family: var(--mono); font-size: 0.9em;
+    background: var(--surface-hover); padding: 1px 5px; border-radius: 4px;
+  }
+  .msg-text.md-render pre {
+    margin: 8px 0; padding: 12px; border-radius: 8px;
+    overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
+  }
+  .msg-text.md-render pre code {
+    background: none; padding: 0; font-size: 12px; line-height: 1.5;
+  }
+  .msg-text.md-render table {
+    border-collapse: collapse; margin: 8px 0; width: 100%; font-size: 12px;
+  }
+  .msg-text.md-render th,.msg-text.md-render td {
+    border: 1px solid var(--border); padding: 6px 10px; text-align: left;
+  }
+  .msg-text.md-render th { background: var(--surface-hover); font-weight: 600 }
+  .msg-text.md-render hr { border: none; border-top: 1px solid var(--border); margin: 12px 0 }
+  .msg-text.md-render a { color: var(--blue); text-decoration: none }
+  .msg-text.md-render a:hover { text-decoration: underline }
+  .msg-text.md-render img { max-width: 100%; border-radius: 6px }
+
   @media (max-width: 768px) {
     .sidebar {
       position: fixed;
@@ -603,6 +649,15 @@ let currentShareUrl = "";
 let publicOrigin = null;
 
 function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''}
+
+marked.use({ breaks: true, gfm: true, renderer: { code({ text, lang }) { const language = lang && hljs.getLanguage(lang) ? lang : 'plaintext'; return '<pre><code class="hljs language-' + language + '">' + hljs.highlight(text, { language }).value + '</code></pre>'; } } });
+var _mdAllowedTags = ['p','h1','h2','h3','h4','h5','h6','ul','ol','li','blockquote','pre','code','em','strong','del','a','table','thead','tbody','tr','th','td','hr','br','img','span','sup','sub','details','summary'];
+var _mdAllowedAttr = ['href','alt','title','class','id','target','rel'];
+function renderMd(text, isMarkdown) {
+  if (!text) return '';
+  if (isMarkdown) return DOMPurify.sanitize(marked.parse(text), { ALLOWED_TAGS: _mdAllowedTags, ALLOWED_ATTR: _mdAllowedAttr });
+  return esc(text);
+}
 
 function getSSEUrl(){
   const params = new URLSearchParams(window.location.search);
@@ -760,16 +815,16 @@ async function loadMessages(){
   } catch {}
 }
 
-function createMsgEl(m){
-  const d = document.createElement('div');
-  d.className = 'msg ' + (m.role || 'system');
+function msgContent(m){
+  const isMd = m.role === 'assistant';
+  const cls = isMd ? 'msg-text md-render' : 'msg-text';
   let h = '';
   if (m.display) {
-    if (m.display.type === 'text') h = '<div class="msg-text">' + esc(m.display.text) + '</div>';
+    if (m.display.type === 'text') h = '<div class="' + cls + '">' + renderMd(m.display.text, isMd) + '</div>';
     else if (m.display.type === 'summary') h = '<div class="msg-text" style="color:var(--yellow)">' + esc(m.display.text) + '</div>';
     else if (m.display.type === 'blocks') {
       (m.display.parts || []).forEach(p => {
-        if (p.type === 'text') h += '<div class="msg-text">' + esc(p.text) + '</div>';
+        if (p.type === 'text') h += '<div class="' + cls + '">' + renderMd(p.text, isMd) + '</div>';
         else if (p.type === 'thinking') h += '<div class="msg-thinking">' + esc(p.text) + '</div>';
         else if (p.type === 'tool_use') h += '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>';
         else if (p.type === 'tool_result') h += '<div class="tool-result">' + esc(p.text) + '</div>';
@@ -777,6 +832,13 @@ function createMsgEl(m){
       if (m.display.model) h += '<span class="model-tag">' + esc(m.display.model) + '</span>';
     }
   }
+  return h;
+}
+
+function createMsgEl(m){
+  const d = document.createElement('div');
+  d.className = 'msg ' + (m.role || 'system');
+  const h = msgContent(m);
   if (!h) { d.style.display = 'none'; return d; }
   const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
   d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body collapsible collapsed">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
@@ -788,20 +850,7 @@ function appendMsg(m){
   const e = el.querySelector('.empty'); if (e) e.remove();
   const d = document.createElement('div');
   d.className = 'msg ' + (m.role || 'system');
-  let h = '';
-  if (m.display) {
-    if (m.display.type === 'text') h = '<div class="msg-text">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'summary') h = '<div class="msg-text" style="color:var(--yellow)">' + esc(m.display.text) + '</div>';
-    else if (m.display.type === 'blocks') {
-      (m.display.parts || []).forEach(p => {
-        if (p.type === 'text') h += '<div class="msg-text">' + esc(p.text) + '</div>';
-        else if (p.type === 'thinking') h += '<div class="msg-thinking">' + esc(p.text) + '</div>';
-        else if (p.type === 'tool_use') h += '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>';
-        else if (p.type === 'tool_result') h += '<div class="tool-result">' + esc(p.text) + '</div>';
-      });
-      if (m.display.model) h += '<span class="model-tag">' + esc(m.display.model) + '</span>';
-    }
-  }
+  const h = msgContent(m);
   if (!h) return;
   const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
   d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body collapsible collapsed">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
@@ -886,12 +935,19 @@ const savedTheme = localStorage.getItem('cc-live-theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 themeToggle.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
 
+function setHljsTheme(theme) {
+  document.getElementById('hljs-light').disabled = (theme === 'dark');
+  document.getElementById('hljs-dark').disabled = (theme !== 'dark');
+}
+setHljsTheme(savedTheme);
+
 themeToggle.addEventListener('click', () => {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('cc-live-theme', next);
   themeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  setHljsTheme(next);
 });
 
 // Mobile menu
