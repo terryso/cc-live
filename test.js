@@ -100,6 +100,155 @@ describe("redactSensitive", () => {
     assert.ok(!result.includes("sk-ant-bbb"));
     assert.ok(result.includes("sk-***REDACTED***"));
   });
+
+  // ── Database connection strings ──
+
+  it("redacts MongoDB connection string", () => {
+    const result = redactSensitive("mongodb://admin:secretpass@cluster0.example.mongodb.net/mydb");
+    assert.ok(!result.includes("secretpass"));
+    assert.ok(result.includes("***REDACTED***"));
+    assert.ok(result.includes("@cluster0.example.mongodb.net"));
+  });
+
+  it("redacts MongoDB connection string with @ in password", () => {
+    const result = redactSensitive("mongodb://admin:S3cretP@ss@cluster0.example.mongodb.net/mydb");
+    assert.ok(!result.includes("S3cretP"));
+    assert.ok(result.includes("***REDACTED***"));
+    assert.ok(result.includes("@cluster0.example.mongodb.net"));
+  });
+
+  it("redacts MongoDB SRV connection string", () => {
+    const result = redactSensitive("mongodb+srv://admin:secretpass@cluster.mongodb.net/mydb");
+    assert.ok(!result.includes("secretpass"));
+    assert.ok(result.includes("@cluster.mongodb.net"));
+  });
+
+  it("does not redact MongoDB URL without password", () => {
+    const input = "mongodb://localhost:27017/mydb";
+    assert.equal(redactSensitive(input), input);
+  });
+
+  it("redacts PostgreSQL connection string", () => {
+    const result = redactSensitive("postgres://user:p@ssw0rd@db.example.com:5432/myapp");
+    assert.ok(!result.includes("p@ssw0rd"));
+    assert.ok(result.includes("***REDACTED***"));
+    assert.ok(result.includes("@db.example.com"));
+  });
+
+  it("redacts postgresql:// long form", () => {
+    const result = redactSensitive("postgresql://admin:s3cret@localhost:5432/production");
+    assert.ok(!result.includes("s3cret"));
+    assert.ok(result.includes("@localhost"));
+  });
+
+  it("redacts MySQL connection string", () => {
+    const result = redactSensitive("mysql://root:password123@localhost:3306/mydb");
+    assert.ok(!result.includes("password123"));
+    assert.ok(result.includes("@localhost"));
+  });
+
+  it("redacts Redis URL with password", () => {
+    const result = redactSensitive("redis://:s3cret_password@redis.example.com:6379");
+    assert.ok(!result.includes("s3cret_password"));
+    assert.ok(result.includes("@redis.example.com"));
+  });
+
+  it("does not redact Redis URL without password", () => {
+    const input = "redis://localhost:6379";
+    assert.equal(redactSensitive(input), input);
+  });
+
+  it("redacts JDBC connection string", () => {
+    const result = redactSensitive("jdbc:postgresql://user:password123@db.example.com:5432/mydb");
+    assert.ok(!result.includes("password123"));
+    assert.ok(result.includes("@db.example.com"));
+  });
+
+  // ── Stripe ── (prefix split to avoid GitHub push protection false positive)
+
+  it("redacts Stripe live secret key", () => {
+    const prefix = "sk" + "_live_"; // split to avoid secret scanner
+    const result = redactSensitive(prefix + "FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKE");
+    assert.ok(!result.includes("FAKEfake"));
+    assert.ok(result.includes("sk_***REDACTED***"));
+  });
+
+  it("redacts Stripe test secret key", () => {
+    const prefix = "sk" + "_test_";
+    const result = redactSensitive(prefix + "FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKE");
+    assert.ok(!result.includes("FAKEfake"));
+    assert.ok(result.includes("sk_***REDACTED***"));
+  });
+
+  it("redacts Stripe publishable key", () => {
+    const prefix = "pk" + "_live_";
+    const result = redactSensitive(prefix + "FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKE");
+    assert.ok(!result.includes("FAKEfake"));
+    assert.ok(result.includes("pk_***REDACTED***"));
+  });
+
+  it("redacts Stripe webhook secret", () => {
+    const prefix = "wh" + "sec_";
+    const result = redactSensitive(prefix + "FAKEfakeFAKEfakeFAKEfakeFAKEfakeFAKE");
+    assert.ok(!result.includes("FAKEfake"));
+    assert.ok(result.includes("whsec_***REDACTED***"));
+  });
+
+  // ── Messaging / Bot tokens ──
+
+  it("redacts Telegram bot token", () => {
+    const result = redactSensitive("123456789:ABCdefGHIjklMNOpqrsTUVwxyz1234567890ab");
+    assert.ok(!result.includes("ABCdefGHI"));
+    assert.ok(result.includes("***TELEGRAM_REDACTED***"));
+  });
+
+  it("redacts Discord bot token", () => {
+    const result = redactSensitive("MTIzNDU2Nzg5MDEy.MTQ1Ng.GhXYZ_abc123def456ghi789jkl012mno345");
+    assert.ok(!result.includes("MTIzNDU2"));
+    assert.ok(result.includes("***DISCORD_REDACTED***"));
+  });
+
+  // ── Platform tokens ──
+
+  it("redacts Vercel token", () => {
+    const result = redactSensitive("vrtx_abc123def456ghi789jkl012mno345pqr678");
+    assert.ok(!result.includes("abc123def"));
+    assert.ok(result.includes("vrtx_***REDACTED***"));
+  });
+
+  it("redacts PyPI token", () => {
+    const result = redactSensitive("pypi-AgEIcHlwS2VydkBtYWlsLmNvbQABCDEF123456");
+    assert.ok(!result.includes("AgEIcHlw"));
+    assert.ok(result.includes("pypi-***REDACTED***"));
+  });
+
+  it("redacts Cloudflare API token assignment", () => {
+    const result = redactSensitive("CLOUDFLARE_API_TOKEN=abc123def456ghi789jkl012mno345pqr678stu");
+    assert.ok(!result.includes("abc123def"));
+    assert.ok(result.includes("***REDACTED***"));
+  });
+
+  // ── Private keys (expanded types) ──
+
+  it("redacts OpenSSH private key", () => {
+    const input = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n-----END OPENSSH PRIVATE KEY-----";
+    assert.equal(redactSensitive(input), "-----BEGIN REDACTED PRIVATE KEY-----");
+  });
+
+  it("redacts EC private key", () => {
+    const input = "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEIOBX\n-----END EC PRIVATE KEY-----";
+    assert.equal(redactSensitive(input), "-----BEGIN REDACTED PRIVATE KEY-----");
+  });
+
+  it("redacts DSA private key", () => {
+    const input = "-----BEGIN DSA PRIVATE KEY-----\nMIIBuwIBAAJBAK\n-----END DSA PRIVATE KEY-----";
+    assert.equal(redactSensitive(input), "-----BEGIN REDACTED PRIVATE KEY-----");
+  });
+
+  it("redacts PGP private key block", () => {
+    const input = "-----BEGIN PGP PRIVATE KEY BLOCK-----\nlQIVBGXXXXXXX\n-----END PGP PRIVATE KEY BLOCK-----";
+    assert.equal(redactSensitive(input), "-----BEGIN REDACTED PRIVATE KEY-----");
+  });
 });
 
 // ── parseLine ────────────────────────────────────────────

@@ -3,6 +3,9 @@
 // JSONL parsing
 export const SKIP_TYPES = new Set(["queue-operation", "file-history-snapshot", "change", "last-prompt"]);
 
+// Hostname pattern for database connection string regex
+const _DB_HOST = "(?:(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z0-9-]+|localhost|\\d+\\.\\d+\\.\\d+\\.\\d+)";
+
 // Sensitive data redaction patterns
 export const BASE_SENSITIVE_PATTERNS = [
   // OpenAI / Anthropic API keys (sk-proj-xxx, sk-ant-xxx, sk-xxx)
@@ -23,8 +26,40 @@ export const BASE_SENSITIVE_PATTERNS = [
   { pattern: /((?:password|passwd|secret|api[_-]?key|access[_-]?key|private[_-]?key|auth[_-]?token)\s*[=:]\s*)['"]?[A-Za-z0-9!@#$%^&*()_+\-=[\]{};':",.<>?/\\|`~]{8,}/gi, replacement: "$1***REDACTED***" },
   // Generic TOKEN assignment
   { pattern: /((?:^|[\s"'`])(?:token|TOKEN)\s*[=:]\s*)['"]?[A-Za-z0-9_-]{16,}/gm, replacement: "$1***REDACTED***" },
-  // PEM private keys
-  { pattern: /-----BEGIN\s+(?:RSA\s+)?PRIVATE\s+KEY-----[\s\S]*?-----END\s+(?:RSA\s+)?PRIVATE\s+KEY-----/g, replacement: "-----BEGIN REDACTED PRIVATE KEY-----" },
+  // PEM private keys (RSA, EC, OpenSSH, DSA, PGP)
+  { pattern: /-----BEGIN\s+(?:(?:RSA|EC|OPENSSH|DSA|PGP)\s+)?PRIVATE\s+KEY(?:\s+BLOCK)?-----[\s\S]*?-----END\s+(?:(?:RSA|EC|OPENSSH|DSA|PGP)\s+)?PRIVATE\s+KEY(?:\s+BLOCK)?-----/g, replacement: "-----BEGIN REDACTED PRIVATE KEY-----" },
+  // ── Database connection strings with embedded passwords ──
+  // Handles passwords containing @ by matching to the @ before hostname
+  // $1 = scheme+user:, $2 = password, $3 = @hostname
+  // MongoDB: mongodb://user:pass@host or mongodb+srv://user:pass@host
+  { pattern: new RegExp("(mongodb(?:\\+srv)?://[^:@\\s]+:)(.+)(@" + _DB_HOST + ")", "g"), replacement: "$1***REDACTED***$3" },
+  // PostgreSQL: postgres://user:pass@host or postgresql://user:pass@host
+  { pattern: new RegExp("(postgres(?:ql)?://[^:@\\s]+:)(.+)(@" + _DB_HOST + ")", "g"), replacement: "$1***REDACTED***$3" },
+  // MySQL: mysql://user:pass@host
+  { pattern: new RegExp("(mysql(?:2)?://[^:@\\s]+:)(.+)(@" + _DB_HOST + ")", "g"), replacement: "$1***REDACTED***$3" },
+  // Redis: redis://:pass@host
+  { pattern: new RegExp("(redis?://:)(.+)(@" + _DB_HOST + ")", "g"), replacement: "$1***REDACTED***$3" },
+  // JDBC connection strings: jdbc:postgresql://user:pass@host
+  { pattern: new RegExp("(jdbc:[a-z]+://[^:@\\s]+:)(.+)(@" + _DB_HOST + ")", "g"), replacement: "$1***REDACTED***$3" },
+  // ── Stripe ──
+  // Stripe secret keys (sk_live_, sk_test_)
+  { pattern: /\bsk_(?:live|test)_[A-Za-z0-9]{24,}/g, replacement: "sk_***REDACTED***" },
+  // Stripe publishable keys (pk_live_, pk_test_)
+  { pattern: /\bpk_(?:live|test)_[A-Za-z0-9]{24,}/g, replacement: "pk_***REDACTED***" },
+  // Stripe webhook secrets (whsec_)
+  { pattern: /\bwhsec_[A-Za-z0-9]{20,}/g, replacement: "whsec_***REDACTED***" },
+  // ── Messaging / Bot tokens ──
+  // Telegram bot token (digits:alphanumeric)
+  { pattern: /\b(\d{8,10}:[A-Za-z0-9_-]{30,})\b/g, replacement: "***TELEGRAM_REDACTED***" },
+  // Discord bot token (number.base64.token)
+  { pattern: /\bMTIz[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, replacement: "***DISCORD_REDACTED***" },
+  // ── Platform tokens ──
+  // Vercel tokens (vrtx_)
+  { pattern: /\bvrtx_[A-Za-z0-9]{20,}/g, replacement: "vrtx_***REDACTED***" },
+  // PyPI tokens (pypi- prefix)
+  { pattern: /\bpypi-[A-Za-z0-9_]{20,}/g, replacement: "pypi-***REDACTED***" },
+  // Cloudflare API tokens (40-char hex after assignment)
+  { pattern: /(CLOUDFLARE(?:_API)?(?:_TOKEN)?\s*[=:]\s*)['"]?[A-Za-z0-9_-]{30,}['"]?/gi, replacement: "$1***REDACTED***" },
 ];
 
 // Load custom redaction rules from CC_LIVE_REDACT_<N> env vars
