@@ -830,7 +830,7 @@ function renderList(){
     d.className = 'pitem' + (proj === activeProject ? ' active' : '');
     const active = _devTimers.has(proj);
     const dot = active ? '<span class="dev-dot"></span>' : '';
-    const meta = (active ? '<span style="color:var(--green)">直播中</span> · ' : '') + info.sessionCount + ' sessions · ' + info.totalMessages + ' msgs';
+    const meta = (active ? '<span style="color:var(--green)">直播中</span> · ' : '<span style="color:var(--dim)">空闲</span> · ') + info.sessionCount + ' sessions · ' + info.totalMessages + ' msgs';
     let inner = '<div class="pitem-info"><div class="pname">' + esc(proj) + dot + '</div><div class="pmeta">' + meta + '</div></div>';
     if (!isShareView) {
       inner += '<button class="share-btn" onclick="event.stopPropagation();createShare(\''+esc(proj).replace(/'/g,"\\'")+'\')">Share</button>';
