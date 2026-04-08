@@ -182,12 +182,14 @@
   .pitem .pname { font-size: 13px; font-weight: 500; word-break: break-all; display: flex; align-items: center; gap: 6px }
   .pitem .pmeta { font-size: 11px; color: var(--dim); margin-top: 3px }
   .dev-dot {
+    display: inline-block;
     width: 7px; height: 7px;
     border-radius: 50%;
     background: var(--green);
     animation: pulse 2s infinite;
     box-shadow: 0 0 6px var(--green);
-    flex-shrink: 0;
+    vertical-align: middle;
+    margin-right: 4px;
   }
   .share-btn {
     font-size: 11px;
