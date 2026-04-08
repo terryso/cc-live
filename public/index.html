@@ -899,6 +899,11 @@ async function loadMessages(){
     loadedBefore = oldestTs;
     if (isFirstPage) {
       el.scrollTop = el.scrollHeight;
+      // Mark active if last message is within timeout
+      const lastTs = msgs[msgs.length - 1].timestamp;
+      if (lastTs && Date.now() - new Date(lastTs).getTime() < DEV_TIMEOUT) {
+        markActive(activeProject);
+      }
     } else {
       el.scrollTo({ top: el.scrollHeight - prevHeight, behavior: 'instant' });
     }
