@@ -717,24 +717,28 @@ function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 let _activityTimer = null;
 const ACTIVITY_TIMEOUT = 60000; // 60s no new message → hide indicator
 
-function updateActivityBar(project, role) {
-  lastRole.set(project, role);
+function updateActivityBar(project, msg) {
+  if (!msg || !msg.role) return;
+  lastRole.set(project, msg);
   if (project !== activeProject) return;
   clearTimeout(_activityTimer);
   const bar = document.getElementById('activityBar');
   const icon = document.getElementById('activityIcon');
   const text = document.getElementById('activityText');
   const dots = document.getElementById('activityDots');
-  if (!role) { bar.classList.remove('visible'); return; }
+
+  // Determine if AI is still working
+  const aiWorking = msg.role !== 'assistant' || hasToolUse(msg);
+
   bar.classList.add('visible');
-  if (role === 'assistant') {
-    icon.textContent = '\u270D\uFE0F';
-    text.textContent = 'User \u6B63\u5728\u8F93\u5165...';
-    dots.className = 'activity-dots user';
-  } else {
+  if (aiWorking) {
     icon.textContent = '\u26A1';
     text.textContent = 'AI \u6B63\u5728\u601D\u8003...';
     dots.className = 'activity-dots ai';
+  } else {
+    icon.textContent = '\u270D\uFE0F';
+    text.textContent = 'User \u6B63\u5728\u8F93\u5165...';
+    dots.className = 'activity-dots user';
   }
   // Auto-scroll to show indicator
   const msgsEl = document.getElementById('msgs');
@@ -742,6 +746,11 @@ function updateActivityBar(project, role) {
   if (distFromBottom < msgsEl.clientHeight) msgsEl.scrollTop = msgsEl.scrollHeight;
   // Auto-hide after timeout
   _activityTimer = setTimeout(() => { bar.classList.remove('visible'); }, ACTIVITY_TIMEOUT);
+}
+
+function hasToolUse(msg) {
+  const parts = msg.display && msg.display.parts;
+  return Array.isArray(parts) && parts.some(p => p.type === 'tool_use');
 }
 
 function isDiffContent(lang, text) {
@@ -813,7 +822,7 @@ function connect(){
     s.messages.push(m);
     if(s.messages.length>500) s.messages=s.messages.slice(-300);
     renderList();
-    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateActivityBar(s.projectName, m.role); }
+    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateActivityBar(s.projectName, m); }
   });
   es.addEventListener('share-info', e => {
     const info = JSON.parse(e.data);
@@ -887,7 +896,8 @@ function selectProject(proj){
   hasMoreHistory = true;
   document.getElementById('title').textContent = proj;
   document.getElementById('path').textContent = '';
-  updateActivityBar(proj, null);
+  clearTimeout(_activityTimer);
+  document.getElementById('activityBar').classList.remove('visible');
   renderList();
   loadMessages();
 }
