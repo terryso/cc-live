@@ -115,6 +115,25 @@ function resolveToken(token) {
   return shareTokens.get(token) || null;
 }
 
+// ── Danmaku helpers ─────────────────────────────────────
+const DANMAKU_DIR = join(__dirname, "data", "danmaku");
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function loadDanmaku(sessionId) {
+  try {
+    const content = await readFile(join(DANMAKU_DIR, `${sessionId}.json`), "utf8");
+    return JSON.parse(content);
+  } catch { return []; }
+}
+
+async function saveDanmaku(sessionId, data) {
+  await mkdir(DANMAKU_DIR, { recursive: true });
+  await writeFile(join(DANMAKU_DIR, `${sessionId}.json`), JSON.stringify(data), "utf8");
+}
+
 // ── JSONL parsing & redaction (imported from lib.js) ────
 
 // ── Sensitive data redaction ──────────────────────────────
@@ -308,14 +327,20 @@ function listProjects() {
 }
 
 // ── Read JSON body helper ───────────────────────────────
-function readBody(req) {
+function readBody(req, maxBytes = 10240) {
   return new Promise((resolve) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
+    let size = 0;
+    req.on("data", (c) => {
+      size += c.length;
+      if (size > maxBytes) { req.destroy(); resolve(null); return; }
+      chunks.push(c);
+    });
     req.on("end", () => {
       try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
       catch { resolve(null); }
     });
+    req.on("error", () => resolve(null));
   });
 }
 
@@ -411,6 +436,60 @@ const server = createServer(async (req, res) => {
     const limit = Math.min(Number(url.searchParams.get("limit") || 50), 200);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(getProjectMessages(project, before, limit)));
+    return;
+  }
+
+  // ── Danmaku API ───────────────────────────────────────
+  if (req.method === "GET" && url.pathname === "/api/danmaku") {
+    if (!local && !share) { res.writeHead(403); res.end(); return; }
+    const sessionId = url.searchParams.get("sessionId");
+    if (!sessionId || !/^[\w-]+$/.test(sessionId)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "sessionId required" })); return; }
+    // Scope check: share users can only access their project's sessions
+    if (share) {
+      const s = sessions.get(sessionId);
+      if (!s || s.projectName !== share.project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
+    }
+    const danmaku = await loadDanmaku(sessionId);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(danmaku));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/danmaku") {
+    if (!local && !share) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "forbidden" })); return; }
+    const body = await readBody(req);
+    if (!body || !body.content || !body.content.trim()) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "content required" }));
+      return;
+    }
+    if (!body.sessionId || !/^[\w-]+$/.test(body.sessionId)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "sessionId required" }));
+      return;
+    }
+    // Scope check: share users can only send to their project's sessions
+    if (share) {
+      const s = sessions.get(body.sessionId);
+      if (!s || s.projectName !== share.project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
+    }
+    const content = escapeHtml(body.content.trim().slice(0, 200));
+    const nickname = escapeHtml((body.nickname || "匿名").slice(0, 20));
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      nickname,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+    const existing = await loadDanmaku(body.sessionId);
+    existing.push(entry);
+    await saveDanmaku(body.sessionId, existing);
+    // Determine project for broadcast
+    const s = sessions.get(body.sessionId);
+    const project = s ? s.projectName : (share ? share.project : null);
+    if (project) broadcast("danmaku", { sessionId: body.sessionId, ...entry }, project);
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(entry));
     return;
   }
 

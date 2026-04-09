@@ -58,6 +58,15 @@
       <span class="filter-count" id="filterCount"></span>
     </div>
     <div class="msgs" id="msgs"><div class="empty">Select a project to view sessions</div></div>
+    <div id="danmaku-layer" class="danmaku-layer"></div>
+    <div id="danmaku-bar" class="danmaku-bar" style="display:none">
+      <button type="button" class="danmaku-toggle" id="danmakuToggle" title="Toggle danmaku">💬</button>
+      <span class="danmaku-nick" id="danmakuNick" title="Click to change nickname"></span>
+      <input type="text" class="danmaku-input" id="danmakuInput" placeholder="发条弹幕..." maxlength="200" autocomplete="off">
+      <button type="button" class="danmaku-emoji-btn" id="danmakuEmojiBtn">😀</button>
+      <div class="danmaku-emoji-picker" id="danmakuEmojiPicker" style="display:none"></div>
+      <button type="button" class="danmaku-send" id="danmakuSend">Send</button>
+    </div>
     <button type="button" class="scroll-nav to-top" id="scrollToTop" aria-label="Scroll to top">&#8593;</button>
     <button type="button" class="scroll-nav to-bottom" id="scrollToBottom" aria-label="Scroll to bottom">&#8595;</button>
   </div>
