@@ -229,6 +229,66 @@ describe("redactSensitive", () => {
     assert.ok(result.includes("***REDACTED***"));
   });
 
+  it("redacts secret= assignments", () => {
+    const result = redactSensitive("secret=mySecretValue123!");
+    assert.ok(result.includes("secret=***REDACTED***"));
+    assert.ok(!result.includes("mySecretValue123"));
+  });
+
+  it("redacts access_key assignments", () => {
+    const result = redactSensitive("access_key=myAccessKeyValue12345");
+    assert.ok(result.includes("access_key=***REDACTED***"));
+    assert.ok(!result.includes("myAccessKeyValue12345"));
+  });
+
+  it("redacts private_key assignments", () => {
+    const result = redactSensitive("private_key=myPrivateKeyData12345");
+    assert.ok(result.includes("private_key=***REDACTED***"));
+    assert.ok(!result.includes("myPrivateKeyData12345"));
+  });
+
+  it("redacts auth_token assignments", () => {
+    const result = redactSensitive("auth_token=myAuthTokenValue1234");
+    assert.ok(result.includes("auth_token=***REDACTED***"));
+    assert.ok(!result.includes("myAuthTokenValue1234"));
+  });
+
+  it("redacts TOKEN= assignments", () => {
+    const result = redactSensitive("TOKEN=abcdefghijklmnop12345678");
+    assert.ok(result.includes("TOKEN=***REDACTED***"));
+    assert.ok(!result.includes("abcdefghijklmnop"));
+  });
+
+  it("redacts token= assignments", () => {
+    const result = redactSensitive("token=abcdefghijklmnop12345678");
+    assert.ok(result.includes("token=***REDACTED***"));
+    assert.ok(!result.includes("abcdefghijklmnop"));
+  });
+
+  it("redacts AWS Secret Access Key", () => {
+    const result = redactSensitive("AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+    assert.ok(result.includes("***REDACTED***"));
+    assert.ok(!result.includes("wJalrXUtnFEMI"));
+  });
+
+  it("redacts AWS SecretAccessKey with colon", () => {
+    const result = redactSensitive("AWSSecretAccessKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
+    assert.ok(result.includes("***REDACTED***"));
+    assert.ok(!result.includes("wJalrXUtnFEMI"));
+  });
+
+  it("redacts mysql2:// connection string", () => {
+    const result = redactSensitive("mysql2://root:password123@localhost:3306/mydb");
+    assert.ok(!result.includes("password123"));
+    assert.ok(result.includes("@localhost"));
+  });
+
+  it("redacts redis:// with password containing special chars", () => {
+    const result = redactSensitive("redis://:p@ss_w0rd@redis.example.com:6379");
+    assert.ok(!result.includes("p@ss_w0rd"));
+    assert.ok(result.includes("@redis.example.com"));
+  });
+
   // ── Private keys (expanded types) ──
 
   it("redacts OpenSSH private key", () => {
@@ -427,6 +487,109 @@ describe("extractDisplayMessage", () => {
     const result = extractDisplayMessage(raw, noRedact);
     assert.equal(result.display.parts[0].text, "42");
   });
+
+  // ── Additional coverage for processUserText paths ──
+
+  it("shows non-empty local-command-stdout content", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<local-command-stdout>build output here</local-command-stdout>" } };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.role, "user");
+    assert.equal(result.display.text, "build output here");
+  });
+
+  it("filters out empty local-command-stdout content", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<local-command-stdout>   </local-command-stdout>" } };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("filters out 'Base directory for this skill:' messages", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "Base directory for this skill: /path/to/skill" } };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("parses command-name with command-args", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<command-name>help</command-name><command-args>me please</command-args>" } };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.deepEqual(result.display, { type: "command", name: "help", args: "me please" });
+  });
+
+  it("returns null for user with non-string non-array content", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: 42 } };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("returns null for user with null content", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: null } };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("returns null for user with undefined content", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: {} };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("returns null when all array blocks are filtered", () => {
+    const raw = {
+      type: "user", uuid: "u1", timestamp: "t1",
+      message: { content: [
+        { type: "text", text: "<local-command-caveat>skip me</local-command-caveat>" },
+      ] },
+    };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
+
+  it("handles structured command result from array text block", () => {
+    const raw = {
+      type: "user", uuid: "u1", timestamp: "t1",
+      message: { content: [
+        { type: "text", text: "<command-name>commit</command-name><command-args>-m fix</command-args>" },
+      ] },
+    };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.role, "user");
+    assert.equal(result.display.parts[0].type, "command");
+    assert.equal(result.display.parts[0].name, "commit");
+    assert.equal(result.display.parts[0].args, "-m fix");
+  });
+
+  it("extracts summary with empty message.summary", () => {
+    const raw = { type: "summary", uuid: "abc", timestamp: "t1", message: {} };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.display.text, "");
+  });
+
+  it("extracts summary with no message object", () => {
+    const raw = { type: "summary", uuid: "abc", timestamp: "t1" };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.display.text, "");
+  });
+
+  it("assistant with no model defaults to empty string", () => {
+    const raw = {
+      type: "assistant", uuid: "a1", timestamp: "t1",
+      message: { content: [{ type: "text", text: "hi" }] },
+    };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.display.model, "");
+  });
+
+  it("assistant skips unknown block types", () => {
+    const raw = {
+      type: "assistant", uuid: "a1", timestamp: "t1",
+      message: { content: [{ type: "unknown_block", data: "x" }, { type: "text", text: "actual text" }] },
+    };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.display.parts.length, 1);
+    assert.equal(result.display.parts[0].text, "actual text");
+  });
+
+  it("assistant with only unknown blocks returns null", () => {
+    const raw = {
+      type: "assistant", uuid: "a1", timestamp: "t1",
+      message: { content: [{ type: "custom_block" }] },
+    };
+    assert.equal(extractDisplayMessage(raw, noRedact), null);
+  });
 });
 
 // ── loadCustomPatterns ───────────────────────────────────
@@ -453,6 +616,32 @@ describe("loadCustomPatterns", () => {
   it("loads multiple patterns", () => {
     const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "secret1", CC_LIVE_REDACT_2: "secret2" });
     assert.equal(patterns.length, 2);
+  });
+
+  it("loads regex pattern that matches literally", () => {
+    const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "/FOO/→[MASKED]" });
+    assert.equal(patterns.length, 1);
+    assert.equal(patterns[0].replacement, "[MASKED]");
+    assert.equal("FOO bar".replace(patterns[0].pattern, patterns[0].replacement), "[MASKED] bar");
+  });
+
+  it("silently skips invalid regex patterns", () => {
+    const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "/[invalid/→redacted" });
+    assert.equal(patterns.length, 0);
+  });
+
+  it("stops loading at first missing index", () => {
+    const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "alpha", CC_LIVE_REDACT_3: "gamma" });
+    assert.equal(patterns.length, 1);
+  });
+
+  it("escapes special regex chars in plain string patterns", () => {
+    const patterns = loadCustomPatterns({ CC_LIVE_REDACT_1: "file.txt" });
+    assert.equal(patterns.length, 1);
+    // The dot should be escaped, so "file_txt" won't match
+    assert.equal("file_txt".replace(patterns[0].pattern, patterns[0].replacement), "file_txt");
+    // But "file.txt" should match
+    assert.equal("file.txt".replace(patterns[0].pattern, patterns[0].replacement), "***REDACTED***");
   });
 });
 
