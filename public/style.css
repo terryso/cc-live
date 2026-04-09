@@ -203,7 +203,7 @@ body {
   gap: 6px;
   transition: background var(--transition);
 }
-.filter-bar.visible { display: flex }
+.filter-bar.visible { display: none }
 .filter-bar .filter-label {
   font-size: 11px;
   color: var(--dim);
