@@ -202,12 +202,25 @@ export function msgContent(m) {
   return h;
 }
 
+export function formatTs(timestamp) {
+  if (!timestamp) return '';
+  const d = new Date(timestamp);
+  const now = new Date();
+  const time = d.toLocaleTimeString();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) return time;
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  return sameYear ? month + '/' + day + ' ' + time : d.getFullYear() + '/' + month + '/' + day + ' ' + time;
+}
+
 export function createMsgEl(m) {
   const d = document.createElement('div');
   d.className = 'msg ' + (m.role || 'system');
   const h = msgContent(m);
   if (!h) { d.style.display = 'none'; return d; }
-  const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
+  const ts = formatTs(m.timestamp);
   d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body collapsible collapsed">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
   return d;
 }
@@ -219,7 +232,7 @@ export function appendMsg(m) {
   d.className = 'msg ' + (m.role || 'system');
   const h = msgContent(m);
   if (!h) return;
-  const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
+  const ts = formatTs(m.timestamp);
   d.innerHTML = '<div class="msg-role ' + (m.role || 'system') + '">' + (m.role || 'system') + '</div><div class="msg-body collapsible collapsed">' + h + '</div>' + (ts ? '<div class="ts">' + ts + '</div>' : '');
   if (activeFilter !== 'all' && !d.classList.contains(activeFilter)) d.style.display = 'none';
   el.appendChild(d);

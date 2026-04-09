@@ -66,6 +66,7 @@ filterBarEl.addEventListener('click', e => {
 const msgsEl = document.getElementById('msgs');
 const scrollBtnTop = document.getElementById('scrollToTop');
 const scrollBtnBottom = document.getElementById('scrollToBottom');
+let _lastHistoryLoad = 0;
 
 scrollBtnTop.addEventListener('click', () => { msgsEl.scrollTop = 0; });
 scrollBtnBottom.addEventListener('click', () => { msgsEl.scrollTop = msgsEl.scrollHeight; });
@@ -76,8 +77,9 @@ msgsEl.addEventListener('scroll', () => {
   const atTop = scrollTop < 80;
   scrollBtnTop.classList.toggle('visible', atBottom && scrollTop > 80);
   scrollBtnBottom.classList.toggle('visible', atTop && scrollHeight - clientHeight > 80);
-  // Auto-load history when scrolled to top
-  if (scrollTop < 60 && hasMoreHistory && !isLoadingHistory) {
+  // Auto-load history when scrolled to top (cooldown prevents momentum scroll re-trigger on mobile)
+  if (scrollTop < 60 && hasMoreHistory && !isLoadingHistory && Date.now() - _lastHistoryLoad > 1000) {
+    _lastHistoryLoad = Date.now();
     loadMessages();
   }
 });

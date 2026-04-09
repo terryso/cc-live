@@ -265,6 +265,7 @@ body {
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
   background: var(--bg);
+  position: relative;
 }
 .msgs::-webkit-scrollbar { width: 5px }
 .msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px }
@@ -540,11 +541,16 @@ body {
 }
 
 .loading-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
   padding: 14px;
   text-align: center;
   color: var(--muted);
   font-size: 13px;
-  margin: 8px 0;
+  background: var(--bg);
   animation: fadeIn 0.3s ease;
 }
 

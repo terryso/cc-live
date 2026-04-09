@@ -84,7 +84,10 @@ export async function loadMessages() {
   if (t) params.set('t', t);
   try {
     setIsLoadingHistory(true);
-    // Show loading indicator at top
+    // Capture scroll state before any DOM changes
+    const prevScrollTop = el.scrollTop;
+    const prevHeight = el.scrollHeight;
+    // Show loading indicator at top (absolute positioned, no layout shift)
     const existingIndicator = el.querySelector('.loading-indicator');
     if (!existingIndicator) {
       const indicator = document.createElement('div');
@@ -98,7 +101,6 @@ export async function loadMessages() {
     const indicator = el.querySelector('.loading-indicator');
     if (indicator) indicator.remove();
     if (!msgs.length) { setHasMoreHistory(false); if (!el.children.length || el.querySelector('.empty')) el.innerHTML = '<div class="empty">No messages yet</div>'; setIsLoadingHistory(false); return; }
-    const prevHeight = el.scrollHeight;
     const existingEmpty = el.querySelector('.empty');
     if (existingEmpty) existingEmpty.remove();
     const fragment = document.createDocumentFragment();
@@ -134,7 +136,10 @@ export async function loadMessages() {
         markActive(activeProject);
       }
     } else {
-      el.scrollTo({ top: el.scrollHeight - prevHeight, behavior: 'instant' });
+      // Override smooth scrolling to ensure instant position restore
+      el.style.scrollBehavior = 'auto';
+      el.scrollTop = prevScrollTop + el.scrollHeight - prevHeight;
+      el.style.scrollBehavior = '';
     }
   } catch { const indicator = el.querySelector('.loading-indicator'); if (indicator) indicator.remove(); setIsLoadingHistory(false); }
   setIsLoadingHistory(false);
