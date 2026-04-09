@@ -2,7 +2,8 @@ import { esc, isDiffContent, renderDiff, detectContentType } from './utils.js';
 import {
   sessions, activeProject, isShareView, _devTimers, DEV_TIMEOUT,
   activeFilter, filterBar, filterCount, loadMessages,
-  setActiveProject, setLoadedBefore, setHasMoreHistory, setActiveFilter
+  setActiveProject, setLoadedBefore, setHasMoreHistory, setActiveFilter,
+  setIsLoadingHistory
 } from './state.js';
 
 // --- Markdown config ---
@@ -324,6 +325,7 @@ export function selectProject(proj) {
   setActiveProject(proj);
   setLoadedBefore(null);
   setHasMoreHistory(true);
+  setIsLoadingHistory(false);
   setActiveFilter('all');
   filterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.role === 'all'));
   filterCount.textContent = '';

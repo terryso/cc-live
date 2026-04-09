@@ -116,6 +116,7 @@ body {
   box-shadow: 0 0 6px var(--green);
 }
 @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 
 .sidebar-actions {
   display: flex;
@@ -538,19 +539,14 @@ body {
   font-family: var(--mono);
 }
 
-.load-more-btn {
+.loading-indicator {
   padding: 14px;
   text-align: center;
-  color: var(--blue);
-  cursor: pointer;
+  color: var(--muted);
   font-size: 13px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
   margin: 8px 0;
-  font-weight: 500;
-  transition: all var(--transition);
+  animation: fadeIn 0.3s ease;
 }
-.load-more-btn:hover { background: var(--blue-dim); border-color: var(--blue) }
 
 /* Scroll nav */
 .scroll-nav {

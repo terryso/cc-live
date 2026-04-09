@@ -3,7 +3,8 @@ import {
   isShareView, shareProject, currentShareUrl, publicOrigin,
   activeFilter, filterBar, filterCount,
   setIsShareView, setShareProject, setActiveProject,
-  setPublicOrigin, setCurrentShareUrl, setLoadedBefore, setHasMoreHistory
+  setPublicOrigin, setCurrentShareUrl, setLoadedBefore, setHasMoreHistory,
+  setIsLoadingHistory, isLoadingHistory
 } from './state.js';
 import {
   renderList, appendMsg, addExpandButtons, applyFilter,
@@ -82,12 +83,22 @@ export async function loadMessages() {
   const t = urlParams.get('t');
   if (t) params.set('t', t);
   try {
+    setIsLoadingHistory(true);
+    // Show loading indicator at top
+    const existingIndicator = el.querySelector('.loading-indicator');
+    if (!existingIndicator) {
+      const indicator = document.createElement('div');
+      indicator.className = 'loading-indicator';
+      indicator.textContent = 'Loading...';
+      el.insertBefore(indicator, el.firstChild);
+    }
     const r = await fetch('/api/project-messages?' + params);
     const msgs = await r.json();
-    if (!msgs.length) { setHasMoreHistory(false); if (!el.children.length || el.querySelector('.empty')) el.innerHTML = '<div class="empty">No messages yet</div>'; return; }
+    // Remove loading indicator
+    const indicator = el.querySelector('.loading-indicator');
+    if (indicator) indicator.remove();
+    if (!msgs.length) { setHasMoreHistory(false); if (!el.children.length || el.querySelector('.empty')) el.innerHTML = '<div class="empty">No messages yet</div>'; setIsLoadingHistory(false); return; }
     const prevHeight = el.scrollHeight;
-    const existingBtn = el.querySelector('.load-more-btn');
-    if (existingBtn) existingBtn.remove();
     const existingEmpty = el.querySelector('.empty');
     if (existingEmpty) existingEmpty.remove();
     const fragment = document.createDocumentFragment();
@@ -110,14 +121,7 @@ export async function loadMessages() {
     if (msgs.length < 50) setHasMoreHistory(false);
     if (activeFilter !== 'all' && hasMoreHistory) {
       const hasMatch = msgs.some(m => (m.role || 'system') === activeFilter);
-      if (!hasMatch) { loadMessages(); return; }
-    }
-    if (msgs.length >= 50) {
-      const btn = document.createElement('div');
-      btn.className = 'load-more-btn';
-      btn.textContent = 'Load more...';
-      btn.onclick = () => { loadMessages(); };
-      el.insertBefore(btn, el.firstChild);
+      if (!hasMatch) { setIsLoadingHistory(false); loadMessages(); return; }
     }
     if (isFirstPage) {
       el.scrollTop = el.scrollHeight;
@@ -128,7 +132,8 @@ export async function loadMessages() {
     } else {
       el.scrollTo({ top: el.scrollHeight - prevHeight, behavior: 'instant' });
     }
-  } catch {}
+  } catch { const indicator = el.querySelector('.loading-indicator'); if (indicator) indicator.remove(); setIsLoadingHistory(false); }
+  setIsLoadingHistory(false);
 }
 
 // --- Share API ---

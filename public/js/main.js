@@ -1,4 +1,4 @@
-import { setFilterBar, setFilterCount, setActiveFilter, activeFilter, setLoadMessages } from './state.js';
+import { setFilterBar, setFilterCount, setActiveFilter, activeFilter, setLoadMessages, hasMoreHistory, isLoadingHistory } from './state.js';
 import { toggleThinking, applyFilter, revokeShare } from './render.js';
 import { connect, closeModal, copyShareUrl, createShare, loadMessages } from './api.js';
 
@@ -76,6 +76,10 @@ msgsEl.addEventListener('scroll', () => {
   const atTop = scrollTop < 80;
   scrollBtnTop.classList.toggle('visible', atBottom && scrollTop > 80);
   scrollBtnBottom.classList.toggle('visible', atTop && scrollHeight - clientHeight > 80);
+  // Auto-load history when scrolled to top
+  if (scrollTop < 60 && hasMoreHistory && !isLoadingHistory) {
+    loadMessages();
+  }
 });
 
 // --- Modal buttons ---
