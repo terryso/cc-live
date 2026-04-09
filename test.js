@@ -5,6 +5,7 @@ import {
   validateShareTokenEntries,
   BASE_SENSITIVE_PATTERNS, loadCustomPatterns,
 } from "./lib.js";
+import { esc, isDiffContent, renderDiff, detectContentType } from "./public/js/utils.js";
 
 // ── redactSensitive ──────────────────────────────────────
 
@@ -304,12 +305,19 @@ describe("extractDisplayMessage", () => {
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });
 
-  it("filters out command-name messages", () => {
+  it("parses command-name messages as structured command display", () => {
     const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<command-name>help</command-name>" } };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.role, "user");
+    assert.deepEqual(result.display, { type: "command", name: "help", args: "" });
+  });
+
+  it("filters out /clear command-name messages", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<command-name>/clear</command-name>" } };
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });
 
-  it("filters out local-command messages", () => {
+  it("filters out local-command-clear messages", () => {
     const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<local-command-clear>stuff</local-command-clear>" } };
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });
@@ -517,5 +525,202 @@ describe("validateShareTokenEntries", () => {
     const result = validateShareTokenEntries({});
     assert.equal(result.size, 0);
     assert.ok(result instanceof Map);
+  });
+});
+
+// ── esc ──────────────────────────────────────────────────
+
+describe("esc", () => {
+  it("returns empty string for falsy input", () => {
+    assert.equal(esc(null), "");
+    assert.equal(esc(undefined), "");
+    assert.equal(esc(""), "");
+    assert.equal(esc(0), "");
+    assert.equal(esc(false), "");
+  });
+
+  it("converts non-string input to string then escapes", () => {
+    assert.equal(esc(42), "42");
+    assert.equal(esc(true), "true");
+  });
+
+  it("escapes &", () => {
+    assert.equal(esc("a&b"), "a&amp;b");
+  });
+
+  it("escapes <", () => {
+    assert.equal(esc("a<b"), "a&lt;b");
+  });
+
+  it("escapes >", () => {
+    assert.equal(esc("a>b"), "a&gt;b");
+  });
+
+  it("escapes double quotes", () => {
+    assert.equal(esc('a"b'), "a&quot;b");
+  });
+
+  it("escapes all special chars in one string", () => {
+    assert.equal(esc('<div class="x">&</div>'), "&lt;div class=&quot;x&quot;&gt;&amp;&lt;/div&gt;");
+  });
+
+  it("returns clean text unchanged", () => {
+    assert.equal(esc("hello world 123"), "hello world 123");
+  });
+});
+
+// ── isDiffContent ────────────────────────────────────────
+
+describe("isDiffContent", () => {
+  it("returns true for lang=diff", () => {
+    assert.equal(isDiffContent("diff", "anything"), true);
+  });
+
+  it("returns false for other explicit languages", () => {
+    assert.equal(isDiffContent("javascript", "var x = 1"), false);
+    assert.equal(isDiffContent("python", "print('hi')"), false);
+    assert.equal(isDiffContent("bash", "echo hi"), false);
+  });
+
+  it("detects diff with @@ hunk headers and changes", () => {
+    const text = "@@ -1,3 +1,3 @@\n-old line\n+new line\n context";
+    assert.equal(isDiffContent(undefined, text), true);
+  });
+
+  it("detects diff with hunk header but only adds", () => {
+    const text = "@@ -1 +1,2 @@\n+added line";
+    assert.equal(isDiffContent(undefined, text), true);
+  });
+
+  it("does not detect diff with hunk but no changes", () => {
+    const text = "@@ -1,3 +1,3 @@\n context\n more context";
+    assert.equal(isDiffContent(undefined, text), false);
+  });
+
+  it("detects diff without hunk headers when add+del > 30%", () => {
+    const lines = ["-removed", "+added", "-removed2"];
+    assert.equal(isDiffContent(undefined, lines.join("\n")), true);
+  });
+
+  it("does not detect diff when only additions (no deletions)", () => {
+    const text = "+added line\n+another added\ncontext line";
+    assert.equal(isDiffContent(undefined, text), false);
+  });
+
+  it("does not detect diff when only deletions (no additions)", () => {
+    const text = "-removed line\n-another removed\ncontext line";
+    assert.equal(isDiffContent(undefined, text), false);
+  });
+
+  it("ignores +++ and --- lines as add/del", () => {
+    const text = "--- a/file.txt\n+++ b/file.txt\ncontext";
+    assert.equal(isDiffContent(undefined, text), false);
+  });
+
+  it("treats lang=plaintext same as no lang", () => {
+    const text = "@@ -1 +1 @@\n-old\n+new";
+    assert.equal(isDiffContent("plaintext", text), true);
+  });
+
+  it("returns false for normal text", () => {
+    assert.equal(isDiffContent(undefined, "hello world\nfoo bar"), false);
+  });
+});
+
+// ── renderDiff ───────────────────────────────────────────
+
+describe("renderDiff", () => {
+  it("wraps output in pre.diff-block", () => {
+    const result = renderDiff("hello");
+    assert.ok(result.startsWith('<pre class="diff-block"><code class="hljs language-diff">'));
+    assert.ok(result.endsWith("</code></pre>"));
+  });
+
+  it("renders @@ lines as diff-hunk", () => {
+    const result = renderDiff("@@ -1,3 +1,3 @@");
+    assert.ok(result.includes("diff-hunk"));
+    assert.ok(result.includes("@@ -1,3 +1,3 @@"));
+  });
+
+  it("renders + lines as diff-add", () => {
+    const result = renderDiff("+added line");
+    assert.ok(result.includes("diff-add"));
+    assert.ok(result.includes("+added line"));
+  });
+
+  it("renders - lines as diff-del", () => {
+    const result = renderDiff("-removed line");
+    assert.ok(result.includes("diff-del"));
+    assert.ok(result.includes("-removed line"));
+  });
+
+  it("renders context lines without add/del/hunk class", () => {
+    const result = renderDiff("just a context line");
+    assert.ok(result.includes("diff-line"));
+    assert.ok(!result.includes("diff-add"));
+    assert.ok(!result.includes("diff-del"));
+    assert.ok(!result.includes("diff-hunk"));
+  });
+
+  it("escapes HTML in diff content", () => {
+    const result = renderDiff('+<script>alert("xss")</script>');
+    assert.ok(!result.includes("<script>"));
+    assert.ok(result.includes("&lt;script&gt;"));
+  });
+
+  it("renders multi-line diff with correct classes", () => {
+    const result = renderDiff("@@ -1 +1 @@\n-old\n+new\n ctx");
+    assert.ok(result.includes("diff-hunk"));
+    assert.ok(result.includes("diff-del"));
+    assert.ok(result.includes("diff-add"));
+    // context line gets diff-line but not diff-add/del/hunk
+  });
+});
+
+// ── detectContentType ────────────────────────────────────
+
+describe("detectContentType", () => {
+  it("detects fenced code blocks as code", () => {
+    assert.equal(detectContentType("```js\nconsole.log('hi')\n```"), "code");
+    assert.equal(detectContentType("```\nbare code\n```"), "code");
+  });
+
+  it("detects valid JSON object as json", () => {
+    assert.equal(detectContentType('{"key": "value"}'), "json");
+  });
+
+  it("detects valid JSON array as json", () => {
+    assert.equal(detectContentType('[1, 2, 3]'), "json");
+  });
+
+  it("does not detect invalid JSON as json", () => {
+    assert.equal(detectContentType("{not valid json}"), "text");
+  });
+
+  it("detects mostly-indented content as code", () => {
+    const text = "line1\n  indented1\n  indented2\n  indented3\n  indented4";
+    assert.equal(detectContentType(text), "code");
+  });
+
+  it("returns text for normal prose", () => {
+    assert.equal(detectContentType("hello world\nthis is text"), "text");
+  });
+
+  it("returns text for short content", () => {
+    assert.equal(detectContentType("hi"), "text");
+  });
+
+  it("handles whitespace-only input", () => {
+    assert.equal(detectContentType("   \n  \n  "), "text");
+  });
+
+  it("does not detect code with low indentation ratio", () => {
+    const text = "line1\n  indented\nline3\nline4\nline5";
+    assert.equal(detectContentType(text), "text");
+  });
+
+  it("requires >3 lines for indentation-based code detection", () => {
+    const text = "  a\n  b\n  c";
+    assert.equal(detectContentType(text), "text");
   });
 });
