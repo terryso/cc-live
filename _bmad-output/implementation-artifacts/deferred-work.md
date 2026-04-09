@@ -37,3 +37,7 @@
 
 - [ ] hljs.highlightAuto / JSON.stringify on very large tool results (>100KB) — could freeze UI. Add size guard and truncate.
 - [ ] renderCodeResult hljs auto-detection on very large strings — add max-length guard before highlighting.
+
+## Deferred from: fix-tool-response-rendering (2026-04-09)
+
+- [ ] `var(--fg)` CSS variable used but never defined — lines 446 and 474 in index.html use `var(--fg)` which doesn't exist in `:root` or `[data-theme="dark"]`. Should be `var(--text)` or similar. Pre-existing.
