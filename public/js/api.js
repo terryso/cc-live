@@ -64,8 +64,7 @@ export function connect() {
     try { const { count } = JSON.parse(e.data); if (typeof count === 'number') document.getElementById('status').textContent = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`; } catch {}
   });
   es.addEventListener('public-origin', e => {
-    setPublicOrigin(e.data);
-    try { setPublicOrigin(JSON.parse(publicOrigin)); } catch {}
+    try { setPublicOrigin(JSON.parse(e.data)); } catch { setPublicOrigin(e.data); }
   });
   es.onerror=()=>{document.getElementById('status').textContent='Reconnecting...';document.getElementById('dot').style.background='var(--red)'};
   es.onopen=()=>{document.getElementById('status').textContent='Live';document.getElementById('dot').style.background='var(--green)';renderList()};

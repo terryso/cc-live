@@ -480,7 +480,9 @@ const server = createServer(async (req, res) => {
 
   // ── Serve static files (.js, .css) ──────────────────────
   if (url.pathname.startsWith("/js/") || url.pathname.startsWith("/style")) {
-    const filePath = join(__dirname, "public", url.pathname);
+    const publicDir = join(__dirname, "public");
+    const filePath = join(publicDir, url.pathname);
+    if (!filePath.startsWith(publicDir)) { res.writeHead(403); res.end(); return; }
     const ext = filePath.endsWith(".js") ? "application/javascript"
               : filePath.endsWith(".css") ? "text/css"
               : "application/octet-stream";

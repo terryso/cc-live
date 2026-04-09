@@ -661,8 +661,6 @@ body {
 }
 .revoke-btn:hover { background: var(--red); color: #fff }
 
-/* Chat bubble */
-
 /* Mobile overlay */
 .sidebar-overlay {
   display: none;

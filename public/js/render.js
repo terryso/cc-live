@@ -317,7 +317,7 @@ export function renderList() {
     d.onclick = () => { selectProject(proj); closeMobileMenu(); };
     el.appendChild(d);
   }
-  if (!isShareView && !new URLSearchParams(location.search).get('t')) loadShares();
+  if (!isShareView) loadShares();
 }
 
 export function selectProject(proj) {
