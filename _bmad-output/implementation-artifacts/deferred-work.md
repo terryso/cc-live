@@ -21,3 +21,9 @@
 - [ ] Wildcard CORS (`Access-Control-Allow-Origin: *`) on sensitive session data server — defense-in-depth gap. Pre-existing.
 - [ ] `limit` query param NaN edge case produces empty response instead of error. Pre-existing.
 - [ ] Share tokens never expire — `createdAt` exists but no cleanup logic. Pre-existing.
+
+## Deferred from: review of spec-epic1-thinking-rendering (2026-04-09)
+
+- [ ] Truncation at 500 chars may break markdown constructs spanning the boundary (unclosed bold/code fence) — DOMPurify prevents XSS; visual artifact is minor for preview. Could truncate rendered HTML instead of raw text for cleaner output.
+- [ ] Double render (full + truncated) for long thinking — could lazy-render full content on expand. Current approach trades perf for simplicity.
+- [ ] Expanded thinking content remains italic — consider `.msg-thinking.thinking-expanded { font-style: normal }` for readability of long-form content.
