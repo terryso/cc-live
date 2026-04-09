@@ -124,7 +124,11 @@ export async function loadMessages() {
       if (!hasMatch) { setIsLoadingHistory(false); loadMessages(); return; }
     }
     if (isFirstPage) {
-      el.scrollTop = el.scrollHeight;
+      const last = el.lastElementChild;
+      if (last) {
+        last.scrollIntoView({ block: 'end', behavior: 'instant' });
+        el.scrollTop = el.scrollHeight;
+      }
       const lastTs = msgs[msgs.length - 1].timestamp;
       if (lastTs && Date.now() - new Date(lastTs).getTime() < 120000) {
         markActive(activeProject);
