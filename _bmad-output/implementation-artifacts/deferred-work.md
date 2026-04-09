@@ -32,3 +32,8 @@
 
 - [ ] fmtTodo no length cap on todos array — very large todo lists could bloat DOM. Add `todos.slice(0, 50)` with overflow indicator if needed.
 - [ ] fmtEdit old_string/new_string very long (10k+ chars) — unbounded DOM. Add truncation with "..." indicator if needed.
+
+## Deferred from: review of spec-epic3-tool-result-rendering (2026-04-09)
+
+- [ ] hljs.highlightAuto / JSON.stringify on very large tool results (>100KB) — could freeze UI. Add size guard and truncate.
+- [ ] renderCodeResult hljs auto-detection on very large strings — add max-length guard before highlighting.
