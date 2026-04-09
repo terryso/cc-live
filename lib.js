@@ -113,6 +113,46 @@ export function validateShareTokenEntries(entries) {
   return valid;
 }
 
+/**
+ * Process user message text — handles command tags, skill invocations, and system boilerplate.
+ * Returns null to skip, or { type, ...data } for structured display.
+ * Modeled after claude-history's process_command_message().
+ */
+function processUserText(text) {
+  const t = text.trim();
+
+  // <local-command-caveat>...</local-command-caveat> — system wrapper, skip entirely
+  if (t.startsWith("<local-command-caveat>") && t.endsWith("</local-command-caveat>")) return null;
+
+  // <local-command-stdout>...</local-command-stdout> — skip if empty, show content if non-empty
+  if (t.startsWith("<local-command-stdout>") && t.endsWith("</local-command-stdout>")) {
+    const inner = t.slice("<local-command-stdout>".length, t.length - "</local-command-stdout>".length).trim();
+    return inner || null;
+  }
+
+  // <command-name>/cmd</command-name> with optional <command-args>...</command-args>
+  const cmdStart = t.indexOf("<command-name>");
+  const cmdEnd = t.indexOf("</command-name>");
+  if (cmdStart !== -1 && cmdEnd !== -1 && cmdStart < cmdEnd) {
+    const cmdName = t.slice(cmdStart + "<command-name>".length, cmdEnd).trim();
+    if (cmdName === "/clear") return null;
+    const argsStart = t.indexOf("<command-args>");
+    const argsEnd = t.indexOf("</command-args>");
+    if (argsStart !== -1 && argsEnd !== -1 && argsStart < argsEnd) {
+      const args = t.slice(argsStart + "<command-args>".length, argsEnd).trim();
+      return { type: "command", name: cmdName, args };
+    }
+    return { type: "command", name: cmdName, args: "" };
+  }
+
+  // "Base directory for this skill:" — skill prompt expansion, skip entirely
+  // (the preceding command message already shows the skill name + args)
+  if (t.startsWith("Base directory for this skill:")) return null;
+
+  // Pass through normal text unchanged
+  return text;
+}
+
 export function extractDisplayMessage(raw, redactFn = redactSensitive) {
   const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
 
@@ -123,10 +163,13 @@ export function extractDisplayMessage(raw, redactFn = redactSensitive) {
   if (type === "user") {
     const content = message?.content;
     if (typeof content === "string") {
-      if (content.startsWith("<local-command-caveat>")) return null;
-      if (content.startsWith("<command-name>")) return null;
-      if (content.startsWith("<local-command-")) return null;
-      return { uuid, timestamp, role: "user", display: { type: "text", text: redactFn(content) }, isSidechain, cwd };
+      const processed = processUserText(content);
+      if (processed === null) return null;
+      if (typeof processed === "string") {
+        return { uuid, timestamp, role: "user", display: { type: "text", text: redactFn(processed) }, isSidechain, cwd };
+      }
+      // Structured result (command)
+      return { uuid, timestamp, role: "user", display: processed, isSidechain, cwd };
     }
     if (Array.isArray(content)) {
       const parts = [];
@@ -138,8 +181,15 @@ export function extractDisplayMessage(raw, redactFn = redactSensitive) {
             : JSON.stringify(block.content);
           parts.push({ type: "tool_result", toolUseId: block.tool_use_id, text: redactFn(text) });
         } else if (block.type === "text") {
+          const processed = processUserText(block.text);
+          if (processed === null) continue;
           hasNonToolResult = true;
-          parts.push({ type: "text", text: redactFn(block.text) });
+          if (typeof processed === "string") {
+            parts.push({ type: "text", text: redactFn(processed) });
+          } else {
+            // Structured result from array text block
+            parts.push(processed);
+          }
         }
       }
       if (!parts.length) return null;

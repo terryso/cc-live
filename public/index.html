@@ -528,6 +528,19 @@
     border: 1px solid var(--border);
   }
 
+  .msg-command {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .cmd-header { font-family: var(--mono); margin-bottom: 4px; }
+  .cmd-prefix { color: #4ade80; font-weight: bold; }
+  .cmd-name { color: #60a5fa; }
+  .msg-command .cmd-args { color: var(--text); opacity: 0.9; }
+  .msg-command .cmd-args p { margin: 2px 0; }
+  .msg-command .cmd-args img { max-width: 100%; border-radius: 4px; }
   .ts { font-size: 11px; color: var(--dim); margin-top: 6px }
 
   .session-divider {
@@ -1073,6 +1086,15 @@ function renderJsonResult(text) {
   }
 }
 
+function renderCommand(p) {
+  if (!p || !p.name) return '';
+  var h = '<div class="msg-command">';
+  h += '<div class="cmd-header"><span class="cmd-prefix">></span> <span class="cmd-name">' + esc(p.name) + '</span></div>';
+  if (p.args) h += '<div class="cmd-args">' + renderMd(p.args, false) + '</div>';
+  h += '</div>';
+  return h;
+}
+
 function getSSEUrl(){
   const params = new URLSearchParams(window.location.search);
   const t = params.get('t');
@@ -1258,10 +1280,12 @@ function msgContent(m){
   let h = '';
   if (m.display) {
     if (m.display.type === 'text') h = '<div class="' + cls + '">' + renderMd(m.display.text, isMd) + '</div>';
+    else if (m.display.type === 'command') h = renderCommand(m.display);
     else if (m.display.type === 'summary') h = '<div class="msg-text" style="color:var(--yellow)">' + esc(m.display.text) + '</div>';
     else if (m.display.type === 'blocks') {
       (m.display.parts || []).forEach(p => {
         if (p.type === 'text') h += '<div class="' + cls + '">' + renderMd(p.text, isMd) + '</div>';
+        else if (p.type === 'command') h += renderCommand(p);
         else if (p.type === 'thinking') h += renderThinking(p.text);
         else if (p.type === 'tool_use') h += renderToolUse(p);
         else if (p.type === 'tool_result') h += renderToolResult(p);
