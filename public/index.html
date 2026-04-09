@@ -467,6 +467,19 @@
   .tool-result pre code {
     font-size: 11px;
   }
+  .tool-result h1, .tool-result h2, .tool-result h3,
+  .tool-result h4, .tool-result h5, .tool-result h6 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 8px 0 4px;
+    color: var(--fg);
+  }
+  .tool-result h1:first-child, .tool-result h2:first-child, .tool-result h3:first-child {
+    margin-top: 0;
+  }
+  .tool-result p {
+    margin: 4px 0;
+  }
   .tool-result-code {
     background: rgba(0,0,0,0.2);
     padding: 8px 12px;
@@ -478,6 +491,17 @@
     color: var(--text-secondary);
     font-size: 11px;
   }
+  .tool-result pre.diff-block { padding: 0; overflow-x: auto; }
+  .tool-result pre.diff-block code { display: block; padding: 8px 0; counter-reset: diff-line; }
+  .tool-result .diff-line { display: block; padding: 0 12px 0 48px; position: relative; min-height: 1.5em; white-space: pre; }
+  .tool-result .diff-line::before { content: counter(diff-line); counter-increment: diff-line; position: absolute; left: 0; width: 38px; text-align: right; color: var(--dim); font-size: 11px; user-select: none; }
+  .tool-result .diff-add { background: rgba(22, 163, 74, .12); }
+  .tool-result .diff-del { background: rgba(220, 38, 38, .12); }
+  [data-theme="dark"] .tool-result .diff-add { background: rgba(74, 222, 128, .15); }
+  [data-theme="dark"] .tool-result .diff-del { background: rgba(248, 113, 113, .15); }
+  .tool-result .diff-hunk { background: rgba(37, 99, 235, .1); color: var(--blue); font-weight: 500; counter-increment: none; }
+  .tool-result .diff-hunk::before { content: ''; counter-increment: none; }
+  @media (max-width: 768px) { .tool-result .diff-line { padding-left: 12px; } .tool-result .diff-line::before { display: none; } }
 
   .expand-btn {
     font-size: 12px;
@@ -1016,7 +1040,7 @@ function renderToolResult(p) {
   var type = detectContentType(text);
   if (type === 'code') return renderCodeResult(text);
   if (type === 'json') return renderJsonResult(text);
-  return '<div class="tool-result">' + renderMd(text, true) + '</div>';
+  return '<div class="tool-result">' + DOMPurify.sanitize(marked.parse(text), { ALLOWED_TAGS: _mdAllowedTags, ALLOWED_ATTR: ['href','alt','title','target','rel'] }) + '</div>';
 }
 
 function detectContentType(text) {
@@ -1034,6 +1058,7 @@ function detectContentType(text) {
 
 function renderCodeResult(text) {
   if (/^```\w+/.test(text.trim())) return '<div class="tool-result">' + renderMd(text, true) + '</div>';
+  if (isDiffContent(undefined, text)) return '<div class="tool-result tool-result-code">' + renderDiff(text) + '</div>';
   var highlighted = hljs.highlightAuto(text);
   return '<div class="tool-result tool-result-code"><pre><code class="hljs language-' + (highlighted.language && /^[a-z0-9-]+$/.test(highlighted.language) ? highlighted.language : 'plaintext') + '">' + highlighted.value + '</code></pre></div>';
 }
