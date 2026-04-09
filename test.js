@@ -305,12 +305,19 @@ describe("extractDisplayMessage", () => {
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });
 
-  it("filters out command-name messages", () => {
+  it("parses command-name messages as structured command display", () => {
     const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<command-name>help</command-name>" } };
+    const result = extractDisplayMessage(raw, noRedact);
+    assert.equal(result.role, "user");
+    assert.deepEqual(result.display, { type: "command", name: "help", args: "" });
+  });
+
+  it("filters out /clear command-name messages", () => {
+    const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<command-name>/clear</command-name>" } };
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });
 
-  it("filters out local-command messages", () => {
+  it("filters out local-command-clear messages", () => {
     const raw = { type: "user", uuid: "u1", timestamp: "t1", message: { content: "<local-command-clear>stuff</local-command-clear>" } };
     assert.equal(extractDisplayMessage(raw, noRedact), null);
   });

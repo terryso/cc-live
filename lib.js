@@ -124,6 +124,9 @@ function processUserText(text) {
   // <local-command-caveat>...</local-command-caveat> — system wrapper, skip entirely
   if (t.startsWith("<local-command-caveat>") && t.endsWith("</local-command-caveat>")) return null;
 
+  // <local-command-clear>...</local-command-clear> — clear screen, skip entirely
+  if (t.startsWith("<local-command-clear>") && t.endsWith("</local-command-clear>")) return null;
+
   // <local-command-stdout>...</local-command-stdout> — skip if empty, show content if non-empty
   if (t.startsWith("<local-command-stdout>") && t.endsWith("</local-command-stdout>")) {
     const inner = t.slice("<local-command-stdout>".length, t.length - "</local-command-stdout>".length).trim();
