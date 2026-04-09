@@ -478,6 +478,23 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // ── Serve static files (.js, .css) ──────────────────────
+  if (url.pathname.startsWith("/js/") || url.pathname.startsWith("/style")) {
+    const filePath = join(__dirname, "public", url.pathname);
+    const ext = filePath.endsWith(".js") ? "application/javascript"
+              : filePath.endsWith(".css") ? "text/css"
+              : "application/octet-stream";
+    try {
+      const data = await readFile(filePath);
+      res.writeHead(200, { "Content-Type": `${ext}; charset=utf-8` });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Not found");
+    }
+    return;
+  }
+
   // ── Serve frontend ────────────────────────────────────
   const FRONTEND_PATH = join(__dirname, "public", "index.html");
   try {
