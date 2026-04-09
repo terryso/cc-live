@@ -27,6 +27,10 @@ Claude Code 会话的实时查看器。实时观看 AI 编码过程，通过 URL
 - 按项目分组查看，支持分页和滚动导航
 - 通过 Token 保护的 URL 分享单个项目
 - 展示用户消息、助手回复、思考过程、工具调用及结果
+- 智能工具渲染：Bash、Read、Write、Edit、Grep/Glob、Agent、TodoWrite、WebSearch 等专用格式化器
+- 工具结果智能检测：语法高亮代码、格式化 JSON、彩色 Diff、渲染 Markdown
+- 思考块以 Markdown 渲染，长内容支持展开/收起
+- 斜杠命令以终端风格气泡展示，而非原始 XML
 - 暗色主题，等宽字体，移动端适配
 - 自动过滤敏感信息（API 密钥、Token、密码、私钥等）
 

@@ -27,6 +27,10 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 - Project-based view with pagination and scroll navigation
 - Share individual projects via token-protected URLs
 - Displays user messages, assistant responses, thinking, tool calls and results
+- Smart tool rendering: specialized formatters for Bash, Read, Write, Edit, Grep/Glob, Agent, TodoWrite, WebSearch
+- Tool result detection: syntax-highlighted code, formatted JSON, diff with colors, rendered markdown
+- Thinking blocks rendered as markdown with expand/collapse for long content
+- Slash commands displayed as formatted terminal-style bubbles instead of raw XML
 - Dark theme, monospace, mobile-friendly
 - Automatic sensitive data redaction (API keys, tokens, passwords, private keys)
 
