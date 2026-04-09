@@ -384,6 +384,68 @@
     word-break: break-all;
     font-family: var(--mono);
   }
+  .tool-call .ticon { margin-right: 4px }
+  .tool-bash { background: #1e1e2e; border-left-color: #89b4fa }
+  .tool-bash .tname { color: #89b4fa }
+  .tool-bash .tool-cmd {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: #11111b;
+    border-radius: 4px;
+    color: #a6e3a1;
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .tool-file { border-left-color: #89dceb }
+  .tool-range { color: var(--dim); font-size: 11px }
+  .tool-write, .tool-edit { border-left-color: #fab387 }
+  .tool-preview {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 160px;
+    overflow: hidden;
+  }
+  .tool-diff-del {
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: rgba(243,139,168,0.15);
+    border-left: 3px solid #f38ba8;
+    color: #f38ba8;
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .tool-diff-add {
+    margin-top: 4px;
+    padding: 4px 10px;
+    background: rgba(166,227,161,0.15);
+    border-left: 3px solid #a6e3a1;
+    color: #a6e3a1;
+    font-family: var(--mono);
+    font-size: 11px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .tool-search { border-left-color: #f9e2af }
+  .tool-pattern { color: #f9e2af; font-family: var(--mono) }
+  .tool-path { color: var(--dim); font-family: var(--mono) }
+  .tool-agent { border-left-color: #cba6f7 }
+  .tool-agent-desc { color: var(--dim); font-size: 11px }
+  .tool-todo { border-left-color: #94e2d5 }
+  .todo-list { margin: 6px 0 0; padding-left: 18px; font-size: 12px }
+  .todo-list li { margin: 2px 0; color: var(--fg) }
+  .todo-list .todo-done { color: var(--dim); text-decoration: line-through }
+  .todo-list .todo-active { color: #89b4fa; font-weight: 600 }
 
   .tool-result {
     margin: 10px 0;
@@ -833,6 +895,101 @@ function toggleThinking(el) {
   if (body && body.classList.contains('collapsed')) body.classList.remove('collapsed');
 }
 
+function renderToolUse(p) {
+  var args;
+  try { args = JSON.parse(p.args); } catch(e) { return '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>'; }
+  if (!args || typeof args !== 'object') args = {};
+  var name = p.toolName;
+  if (name === 'Bash') return fmtBash(args);
+  if (name === 'Read') return fmtRead(args);
+  if (name === 'Write') return fmtWrite(args);
+  if (name === 'Edit') return fmtEdit(args);
+  if (name === 'Grep' || name === 'Glob') return fmtSearch(name, args);
+  if (name === 'Agent') return fmtAgent(args);
+  if (name === 'TodoWrite') return fmtTodo(args);
+  if (name === 'WebSearch') return fmtWebSearch(args);
+  return fmtFallback(name, args);
+}
+
+function fmtBash(a) {
+  var cmd = a.command || a.description || '';
+  if (!cmd) return fmtFallback('Bash', a);
+  return '<div class="tool-call tool-bash"><span class="ticon">⌨</span> <span class="tname">Bash</span>' +
+    '<div class="tool-cmd">$ ' + esc(cmd) + '</div></div>';
+}
+
+function fmtRead(a) {
+  var path = a.file_path || '';
+  if (!path) return fmtFallback('Read', a);
+  var info = '📄 ' + esc(path);
+  if (a.offset != null && a.limit != null) info += ' <span class="tool-range">(L' + esc(String(a.offset)) + '-L' + esc(String(a.offset + a.limit - 1)) + ')</span>';
+  return '<div class="tool-call tool-file">' + info + '</div>';
+}
+
+function fmtWrite(a) {
+  var path = a.file_path || '';
+  if (!path) return fmtFallback('Write', a);
+  var h = '<div class="tool-call tool-file tool-write"><span class="ticon">📝</span> ' + esc(path);
+  var lines = (a.content || '').split('\n').slice(0, 10);
+  if (lines.length) h += '<pre class="tool-preview">' + esc(lines.join('\n')) + '</pre>';
+  h += '</div>';
+  return h;
+}
+
+function fmtEdit(a) {
+  var path = a.file_path || '';
+  var h = '<div class="tool-call tool-file tool-edit"><span class="ticon">✏️</span> ' + esc(path);
+  if (a.old_string) h += '<div class="tool-diff-del">- ' + esc(a.old_string) + '</div>';
+  if (a.new_string) h += '<div class="tool-diff-add">+ ' + esc(a.new_string) + '</div>';
+  if (!a.old_string && !a.new_string) return fmtFallback('Edit', a);
+  h += '</div>';
+  return h;
+}
+
+function fmtSearch(name, a) {
+  var pattern = a.pattern || '';
+  if (!pattern) return fmtFallback(name, a);
+  var h = '<div class="tool-call tool-search"><span class="ticon">🔍</span> ' + esc(name) + ' <span class="tool-pattern">"' + esc(pattern) + '"</span>';
+  if (a.path) h += ' in <span class="tool-path">' + esc(a.path) + '</span>';
+  h += '</div>';
+  return h;
+}
+
+function fmtAgent(a) {
+  var desc = a.description || '';
+  if (!desc && a.prompt) desc = a.prompt.substring(0, 50) + (a.prompt.length > 50 ? '…' : '');
+  var sub = a.subagent_type || '';
+  var h = '<div class="tool-call tool-agent"><span class="ticon">🤖</span>';
+  if (sub) h += ' ' + esc(sub);
+  if (desc) h += ' <span class="tool-agent-desc">(' + esc(desc) + ')</span>';
+  h += '</div>';
+  return h;
+}
+
+function fmtTodo(a) {
+  var todos = a.todos;
+  if (!Array.isArray(todos)) return fmtFallback('TodoWrite', a);
+  var h = '<div class="tool-call tool-todo"><span class="ticon">📋</span> TodoWrite<ul class="todo-list">';
+  todos.forEach(function(t) {
+    if (!t) return;
+    var icon = t.status === 'completed' ? '☑' : (t.status === 'in_progress' ? '☐ ●' : '☐');
+    var cls = t.status === 'completed' ? 'todo-done' : (t.status === 'in_progress' ? 'todo-active' : '');
+    h += '<li class="' + cls + '">' + icon + ' ' + esc(t.content || '') + '</li>';
+  });
+  h += '</ul></div>';
+  return h;
+}
+
+function fmtWebSearch(a) {
+  var q = a.query || '';
+  if (!q) return fmtFallback('WebSearch', a);
+  return '<div class="tool-call tool-search"><span class="ticon">🌐</span> <span class="tool-pattern">"' + esc(q) + '"</span></div>';
+}
+
+function fmtFallback(name, a) {
+  return '<div class="tool-call"><span class="tname">' + esc(name) + '</span><div class="targs">' + esc(JSON.stringify(a, null, 2)) + '</div></div>';
+}
+
 function getSSEUrl(){
   const params = new URLSearchParams(window.location.search);
   const t = params.get('t');
@@ -1023,7 +1180,7 @@ function msgContent(m){
       (m.display.parts || []).forEach(p => {
         if (p.type === 'text') h += '<div class="' + cls + '">' + renderMd(p.text, isMd) + '</div>';
         else if (p.type === 'thinking') h += renderThinking(p.text);
-        else if (p.type === 'tool_use') h += '<div class="tool-call"><span class="tname">' + esc(p.toolName) + '</span><div class="targs">' + esc(p.args) + '</div></div>';
+        else if (p.type === 'tool_use') h += renderToolUse(p);
         else if (p.type === 'tool_result') h += '<div class="tool-result">' + esc(p.text) + '</div>';
       });
       if (m.display.model) h += '<span class="model-tag">' + esc(m.display.model) + '</span>';

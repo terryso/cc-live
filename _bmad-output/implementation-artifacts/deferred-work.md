@@ -27,3 +27,8 @@
 - [ ] Truncation at 500 chars may break markdown constructs spanning the boundary (unclosed bold/code fence) — DOMPurify prevents XSS; visual artifact is minor for preview. Could truncate rendered HTML instead of raw text for cleaner output.
 - [ ] Double render (full + truncated) for long thinking — could lazy-render full content on expand. Current approach trades perf for simplicity.
 - [ ] Expanded thinking content remains italic — consider `.msg-thinking.thinking-expanded { font-style: normal }` for readability of long-form content.
+
+## Deferred from: review of spec-epic2-tool-visualization (2026-04-09)
+
+- [ ] fmtTodo no length cap on todos array — very large todo lists could bloat DOM. Add `todos.slice(0, 50)` with overflow indicator if needed.
+- [ ] fmtEdit old_string/new_string very long (10k+ chars) — unbounded DOM. Add truncation with "..." indicator if needed.
