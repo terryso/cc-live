@@ -156,6 +156,131 @@ function processUserText(text) {
   return text;
 }
 
+// ── Server pure data functions (extracted for testability) ──
+
+export function listSessions(sessions, projectFilter) {
+  const list = [];
+  for (const [id, s] of sessions) {
+    if (s.isSubagent) continue;
+    if (projectFilter && s.projectName !== projectFilter) continue;
+    list.push({ sessionId: id, projectName: s.projectName, messageCount: s.messages.length });
+  }
+  return list.sort((a, b) => b.messageCount - a.messageCount);
+}
+
+export function getProjectMessages(sessions, projectName, before, limit) {
+  const allMsgs = [];
+  for (const [sid, s] of sessions) {
+    if (s.projectName !== projectName) continue;
+    for (const m of s.messages) {
+      allMsgs.push({ ...m, _sid: sid });
+    }
+  }
+  // Sort oldest first
+  allMsgs.sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
+
+  if (before) {
+    const older = allMsgs.filter(m => m.timestamp < before);
+    return older.slice(Math.max(0, older.length - limit));
+  }
+  return allMsgs.slice(Math.max(0, allMsgs.length - limit));
+}
+
+export function listProjects(sessions) {
+  const projects = new Map();
+  for (const [id, s] of sessions) {
+    if (s.isSubagent) continue;
+    if (!projects.has(s.projectName)) {
+      projects.set(s.projectName, { name: s.projectName, sessionCount: 0, totalMessages: 0 });
+    }
+    const p = projects.get(s.projectName);
+    p.sessionCount++;
+    p.totalMessages += s.messages.length;
+  }
+  return [...projects.values()].sort((a, b) => b.totalMessages - a.totalMessages);
+}
+
+export function computeProjectStats(sessions, projectName, now = Date.now()) {
+  const toolCounts = {};
+  const files = new Set();
+  let totalMessages = 0;
+  let totalToolCalls = 0;
+  let thinkingCount = 0;
+  let userModel = "";
+  const timeline = new Array(30).fill(0);
+  const timelineTools = new Array(30).fill(0);
+  let recentCount = 0;
+  let firstTs = Infinity;
+  let lastTs = 0;
+
+  for (const [, s] of sessions) {
+    if (s.projectName !== projectName) continue;
+    for (const m of s.messages) {
+      totalMessages++;
+      const ts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+      if (ts > 0) {
+        if (ts < firstTs) firstTs = ts;
+        if (ts > lastTs) lastTs = ts;
+        const minsAgo = Math.floor((now - ts) / 60000);
+        if (minsAgo >= 0 && minsAgo < 30) timeline[29 - minsAgo]++;
+        if (ts > now - 60000) recentCount++;
+      }
+      if (m.display?.type === "blocks" && Array.isArray(m.display.parts)) {
+        for (const p of m.display.parts) {
+          if (p.type === "tool_use") {
+            totalToolCalls++;
+            const name = p.toolName || "unknown";
+            toolCounts[name] = (toolCounts[name] || 0) + 1;
+            if (p.args) {
+              try {
+                const args = JSON.parse(p.args);
+                if (args.file_path) files.add(args.file_path);
+              } catch {}
+            }
+            if (ts > 0) {
+              const minsAgo = Math.floor((now - ts) / 60000);
+              if (minsAgo >= 0 && minsAgo < 30) timelineTools[29 - minsAgo]++;
+            }
+          }
+          if (p.type === "thinking") thinkingCount++;
+        }
+        if (m.role === "assistant" && m.display.model) userModel = m.display.model;
+      }
+    }
+  }
+
+  const topTools = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const durationMs = (firstTs < Infinity && lastTs > 0) ? lastTs - firstTs : 0;
+
+  return {
+    totalMessages,
+    totalToolCalls,
+    filesTouched: files.size,
+    thinkingCount,
+    durationMs,
+    velocity: recentCount,
+    model: userModel,
+    timeline,
+    timelineTools,
+    topTools,
+    topToolMax: topTools.length ? topTools[0][1] : 1,
+  };
+}
+
+// ── Dashboard pure functions ──
+
+export function formatDuration(ms) {
+  if (ms <= 0) return "0m";
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  if (hrs > 0) return hrs + "h " + (mins % 60) + "m";
+  return mins + "m";
+}
+
+export function formatModel(m) {
+  return m.replace(/^claude-/, "").replace(/-\d{8}$/, "");
+}
+
 export function extractDisplayMessage(raw, redactFn = redactSensitive) {
   const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
 

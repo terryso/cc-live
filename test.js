@@ -7,6 +7,8 @@ import {
   redactSensitive, parseLine, extractDisplayMessage,
   validateShareTokenEntries,
   BASE_SENSITIVE_PATTERNS, loadCustomPatterns,
+  listSessions, getProjectMessages, listProjects, computeProjectStats,
+  formatDuration, formatModel,
 } from "./lib.js";
 import { esc, isDiffContent, renderDiff, detectContentType } from "./public/js/utils.js";
 
@@ -1026,5 +1028,367 @@ describe("danmaku file persistence", () => {
   it("cleans up test directory", async () => {
     await rm(testDir, { recursive: true, force: true });
     assert.ok(true);
+  });
+});
+
+// ── listSessions ─────────────────────────────────────────
+
+describe("listSessions", () => {
+  function makeSessions(entries) {
+    const map = new Map();
+    for (const [id, s] of entries) map.set(id, s);
+    return map;
+  }
+
+  it("returns empty array for empty sessions", () => {
+    assert.deepEqual(listSessions(new Map(), null), []);
+  });
+
+  it("lists non-subagent sessions sorted by messageCount desc", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: new Array(5) }],
+      ["s2", { projectName: "proj-b", isSubagent: false, messages: new Array(10) }],
+      ["s3", { projectName: "proj-a", isSubagent: false, messages: new Array(3) }],
+    ]);
+    const result = listSessions(sessions, null);
+    assert.equal(result.length, 3);
+    assert.equal(result[0].sessionId, "s2");
+    assert.equal(result[0].messageCount, 10);
+    assert.equal(result[1].sessionId, "s1");
+    assert.equal(result[2].sessionId, "s3");
+  });
+
+  it("filters by project name", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: [] }],
+      ["s2", { projectName: "proj-b", isSubagent: false, messages: [] }],
+    ]);
+    const result = listSessions(sessions, "proj-a");
+    assert.equal(result.length, 1);
+    assert.equal(result[0].sessionId, "s1");
+  });
+
+  it("excludes subagent sessions", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: [] }],
+      ["s2", { projectName: "proj-a", isSubagent: true, messages: [] }],
+    ]);
+    const result = listSessions(sessions, null);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].sessionId, "s1");
+  });
+
+  it("returns empty when no sessions match filter", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: [] }],
+    ]);
+    assert.deepEqual(listSessions(sessions, "nonexistent"), []);
+  });
+});
+
+// ── getProjectMessages ───────────────────────────────────
+
+describe("getProjectMessages", () => {
+  function makeSessions(entries) {
+    const map = new Map();
+    for (const [id, s] of entries) map.set(id, s);
+    return map;
+  }
+
+  const msg = (ts, text) => ({ timestamp: ts, display: { type: "text", text } });
+
+  it("returns empty array for no matching project", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [msg("t1", "hi")] }],
+    ]);
+    assert.deepEqual(getProjectMessages(sessions, "nonexistent", null, 50), []);
+  });
+
+  it("returns last N messages sorted oldest first", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [msg("t1", "a"), msg("t2", "b"), msg("t3", "c")] }],
+    ]);
+    const result = getProjectMessages(sessions, "proj-a", null, 2);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].timestamp, "t2");
+    assert.equal(result[1].timestamp, "t3");
+  });
+
+  it("collects messages from multiple sessions for same project", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [msg("t1", "a")] }],
+      ["s2", { projectName: "proj-a", messages: [msg("t2", "b")] }],
+      ["s3", { projectName: "proj-b", messages: [msg("t3", "c")] }],
+    ]);
+    const result = getProjectMessages(sessions, "proj-a", null, 50);
+    assert.equal(result.length, 2);
+    assert.equal(result[0]._sid, "s1");
+    assert.equal(result[1]._sid, "s2");
+  });
+
+  it("filters by 'before' timestamp", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [msg("t1", "a"), msg("t2", "b"), msg("t3", "c"), msg("t4", "d")] }],
+    ]);
+    const result = getProjectMessages(sessions, "proj-a", "t3", 2);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].timestamp, "t1");
+    assert.equal(result[1].timestamp, "t2");
+  });
+
+  it("respects limit with before filter", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [msg("t1", "a"), msg("t2", "b"), msg("t3", "c")] }],
+    ]);
+    const result = getProjectMessages(sessions, "proj-a", "t3", 1);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].timestamp, "t2");
+  });
+});
+
+// ── listProjects ─────────────────────────────────────────
+
+describe("listProjects", () => {
+  function makeSessions(entries) {
+    const map = new Map();
+    for (const [id, s] of entries) map.set(id, s);
+    return map;
+  }
+
+  it("returns empty array for empty sessions", () => {
+    assert.deepEqual(listProjects(new Map()), []);
+  });
+
+  it("groups sessions by project", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: [1, 2] }],
+      ["s2", { projectName: "proj-a", isSubagent: false, messages: [3] }],
+      ["s3", { projectName: "proj-b", isSubagent: false, messages: [1, 2, 3, 4] }],
+    ]);
+    const result = listProjects(sessions);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].name, "proj-b"); // most messages first
+    assert.equal(result[0].totalMessages, 4);
+    assert.equal(result[0].sessionCount, 1);
+    assert.equal(result[1].name, "proj-a");
+    assert.equal(result[1].totalMessages, 3);
+    assert.equal(result[1].sessionCount, 2);
+  });
+
+  it("excludes subagent sessions", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", isSubagent: false, messages: [1] }],
+      ["s2", { projectName: "proj-a", isSubagent: true, messages: [1, 2, 3] }],
+    ]);
+    const result = listProjects(sessions);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].totalMessages, 1);
+    assert.equal(result[0].sessionCount, 1);
+  });
+});
+
+// ── computeProjectStats ──────────────────────────────────
+
+describe("computeProjectStats", () => {
+  function makeSessions(entries) {
+    const map = new Map();
+    for (const [id, s] of entries) map.set(id, s);
+    return map;
+  }
+
+  const now = Date.now(); // Use real timestamp to avoid pre-epoch negatives
+  const toolMsg = (minsAgo, toolName, filePath) => ({
+    timestamp: new Date(now - minsAgo * 60000).toISOString(),
+    role: "assistant",
+    display: {
+      type: "blocks",
+      parts: [{
+        type: "tool_use",
+        toolName,
+        args: JSON.stringify({ file_path: filePath }),
+      }],
+      model: "claude-4-sonnet",
+    },
+  });
+
+  const textMsg = (minsAgo) => ({
+    timestamp: new Date(now - minsAgo * 60000).toISOString(),
+    role: "user",
+    display: { type: "text", text: "hello" },
+  });
+
+  it("returns zeros for empty sessions", () => {
+    const stats = computeProjectStats(new Map(), "proj-a", now);
+    assert.equal(stats.totalMessages, 0);
+    assert.equal(stats.totalToolCalls, 0);
+    assert.equal(stats.filesTouched, 0);
+    assert.equal(stats.durationMs, 0);
+    assert.equal(stats.velocity, 0);
+    assert.deepEqual(stats.topTools, []);
+    assert.equal(stats.topToolMax, 1);
+  });
+
+  it("counts messages and tool calls", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        textMsg(5),
+        toolMsg(4, "Read", "/foo.js"),
+        toolMsg(3, "Bash", null),
+        textMsg(2),
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.totalMessages, 4);
+    assert.equal(stats.totalToolCalls, 2);
+    assert.equal(stats.filesTouched, 1);
+  });
+
+  it("computes velocity (messages in last 60s)", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        textMsg(0.5), // 30s ago → recent
+        textMsg(2),   // 2min ago → not recent
+        textMsg(0.8), // 48s ago → recent
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.velocity, 2);
+  });
+
+  it("computes timeline for last 30 minutes", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        textMsg(0),
+        textMsg(1),
+        textMsg(5),
+        textMsg(29),
+        textMsg(35), // outside window
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.timeline[29], 1); // 0 min ago
+    assert.equal(stats.timeline[28], 1); // 1 min ago
+    assert.equal(stats.timeline[24], 1); // 5 min ago
+    assert.equal(stats.timeline[0], 1);  // 29 min ago
+    // 35 min ago should NOT be in timeline
+    const timelineSum = stats.timeline.reduce((a, b) => a + b, 0);
+    assert.equal(timelineSum, 4);
+  });
+
+  it("computes duration between first and last message", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        textMsg(10),
+        textMsg(5),
+        textMsg(0),
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.durationMs, 10 * 60 * 1000);
+  });
+
+  it("extracts model from assistant messages", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [toolMsg(1, "Read", "/a")] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.model, "claude-4-sonnet");
+  });
+
+  it("counts thinking blocks", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [{
+        timestamp: new Date(now).toISOString(),
+        role: "assistant",
+        display: { type: "blocks", parts: [{ type: "thinking", text: "hmm" }] },
+      }] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.thinkingCount, 1);
+  });
+
+  it("ranks top tools by count", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        toolMsg(10, "Read", "/a"),
+        toolMsg(9, "Read", "/b"),
+        toolMsg(8, "Bash", null),
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.topTools[0][0], "Read");
+    assert.equal(stats.topTools[0][1], 2);
+    assert.equal(stats.topTools[1][0], "Bash");
+    assert.equal(stats.topTools[1][1], 1);
+  });
+
+  it("ignores other projects", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [textMsg(1)] }],
+      ["s2", { projectName: "proj-b", messages: [textMsg(1), textMsg(2)] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.totalMessages, 1);
+  });
+
+  it("computes timelineTools alongside timeline", () => {
+    const sessions = makeSessions([
+      ["s1", { projectName: "proj-a", messages: [
+        toolMsg(1, "Read", "/a"),
+        textMsg(1),
+      ] }],
+    ]);
+    const stats = computeProjectStats(sessions, "proj-a", now);
+    assert.equal(stats.timelineTools[28], 1);
+    assert.equal(stats.timeline[28], 2);
+  });
+});
+
+// ── formatDuration ───────────────────────────────────────
+
+describe("formatDuration", () => {
+  it("returns '0m' for zero", () => {
+    assert.equal(formatDuration(0), "0m");
+  });
+
+  it("returns '0m' for negative", () => {
+    assert.equal(formatDuration(-100), "0m");
+  });
+
+  it("formats minutes", () => {
+    assert.equal(formatDuration(5 * 60 * 1000), "5m");
+    assert.equal(formatDuration(30 * 60 * 1000), "30m");
+    assert.equal(formatDuration(59 * 60 * 1000), "59m");
+  });
+
+  it("formats hours and minutes", () => {
+    assert.equal(formatDuration(90 * 60 * 1000), "1h 30m");
+    assert.equal(formatDuration(125 * 60 * 1000), "2h 5m");
+    assert.equal(formatDuration(60 * 60 * 1000), "1h 0m");
+  });
+
+  it("handles sub-minute durations", () => {
+    assert.equal(formatDuration(30000), "0m"); // 30 seconds rounds to 0m
+  });
+});
+
+// ── formatModel ──────────────────────────────────────────
+
+describe("formatModel", () => {
+  it("strips 'claude-' prefix", () => {
+    assert.equal(formatModel("claude-4-sonnet"), "4-sonnet");
+    assert.equal(formatModel("claude-opus-4-6"), "opus-4-6");
+  });
+
+  it("strips trailing date suffix", () => {
+    assert.equal(formatModel("claude-sonnet-4-6-20251001"), "sonnet-4-6");
+  });
+
+  it("returns unchanged if no prefix", () => {
+    assert.equal(formatModel("gpt-4"), "gpt-4");
+  });
+
+  it("handles empty string", () => {
+    assert.equal(formatModel(""), "");
   });
 });
