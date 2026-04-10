@@ -34,6 +34,18 @@ Real-time viewer for Claude Code sessions. Watch your AI coding process live, sh
 - Dark theme, monospace, mobile-friendly
 - Automatic sensitive data redaction (API keys, tokens, passwords, private keys)
 
+### Danmaku (Bullet Comments)
+
+Shared pages support **danmaku** — real-time bullet comments that float across the screen, creating a live-stream atmosphere for viewers.
+
+- **Send comments**: Type text or pick emoji from the input bar at the bottom of any shared page
+- **Auto nickname**: A random Chinese adjective+noun nickname is generated on first visit, editable anytime (persisted in localStorage)
+- **Live broadcast**: New comments are pushed to all viewers via SSE in real-time
+- **History playback**: Past comments replay automatically when the page loads
+- **Toggle on/off**: Dimmed toggle button, state saved across sessions
+- **Performance**: Pure CSS animations, max 15 simultaneous comments on screen
+- **Content limits**: 200 chars per comment, 20 chars per nickname, HTML-escaped for safety
+
 ## Quick Start
 
 ```bash

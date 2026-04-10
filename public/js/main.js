@@ -103,6 +103,12 @@ function initDanmakuUI() {
   if (!isShareView) return;
   danmakuBar.style.display = 'flex';
   danmakuNick.textContent = getNickname();
+  // Restore danmaku on/off state
+  const saved = localStorage.getItem('danmaku-on');
+  if (saved === 'false') {
+    toggleDanmaku(false);
+    danmakuToggle.classList.add('off');
+  }
 
   // Populate emoji picker
   for (const emoji of EMOJIS) {
@@ -128,13 +134,40 @@ const titleObserver = new MutationObserver(() => {
 titleObserver.observe(origTitle, { childList: true });
 initDanmakuUI();
 
-// Nickname edit
-danmakuNick.addEventListener('click', () => {
-  const current = getNickname();
-  const newName = prompt('Change nickname:', current);
-  if (newName && newName.trim()) {
-    danmakuNick.textContent = setNickname(newName.trim());
+// Nickname edit modal
+const nickModal = document.getElementById('nickModal');
+const nickInput = document.getElementById('nickInput');
+const nickCancelBtn = document.getElementById('nickCancelBtn');
+const nickSaveBtn = document.getElementById('nickSaveBtn');
+
+function openNickModal() {
+  nickInput.value = getNickname();
+  nickModal.style.display = 'flex';
+  nickInput.focus();
+  nickInput.select();
+}
+
+function closeNickModal() {
+  nickModal.style.display = 'none';
+}
+
+function saveNickEdit() {
+  const val = nickInput.value.trim();
+  if (val) {
+    danmakuNick.textContent = setNickname(val);
   }
+  closeNickModal();
+}
+
+danmakuNick.addEventListener('click', openNickModal);
+nickCancelBtn.addEventListener('click', closeNickModal);
+nickSaveBtn.addEventListener('click', saveNickEdit);
+nickInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveNickEdit();
+  if (e.key === 'Escape') closeNickModal();
+});
+nickModal.addEventListener('click', e => {
+  if (e.target === nickModal) closeNickModal();
 });
 
 // Emoji picker toggle
@@ -173,7 +206,7 @@ danmakuToggle.addEventListener('click', () => {
   const on = !isDanmakuOn;
   toggleDanmaku(on);
   danmakuToggle.classList.toggle('off', !on);
-  danmakuToggle.textContent = on ? '💬' : '🚫';
+  localStorage.setItem('danmaku-on', on);
 });
 
 // --- Connect ---
