@@ -11,6 +11,7 @@ import {
   showFilterBar, markActive, selectProject, createMsgEl
 } from './render.js';
 import { esc } from './utils.js';
+import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
 
 // --- SSE ---
 export function getSSEUrl() {
@@ -60,6 +61,11 @@ export function connect() {
     document.getElementById('title').textContent = info.project;
     renderList();
     loadMessages();
+    // Load danmaku history for this project
+    loadDanmakuHistory(info.project).then(items => { if (items.length) playbackHistory(items); }).catch(() => {});
+  });
+  es.addEventListener('danmaku', e => {
+    try { handleDanmakuEvent(JSON.parse(e.data)); } catch {}
   });
   es.addEventListener('viewer_count', e => {
     try { const { count } = JSON.parse(e.data); if (typeof count === 'number') document.getElementById('status').textContent = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`; } catch {}

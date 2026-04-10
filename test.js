@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFile, writeFile, mkdir, rm } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
 import {
   redactSensitive, parseLine, extractDisplayMessage,
   validateShareTokenEntries,
@@ -911,5 +914,117 @@ describe("detectContentType", () => {
   it("requires >3 lines for indentation-based code detection", () => {
     const text = "  a\n  b\n  c";
     assert.equal(detectContentType(text), "text");
+  });
+});
+
+// ── Danmaku: project name validation ──────────────────────────
+
+describe("danmaku project name validation", () => {
+  const validPattern = /^[\w-]+$/;
+
+  it("accepts alphanumeric project names", () => {
+    assert.ok(validPattern.test("abc123"));
+    assert.ok(validPattern.test("session-2026-04-10"));
+    assert.ok(validPattern.test("a1b2c3d4e5f6"));
+  });
+
+  it("accepts underscores and hyphens", () => {
+    assert.ok(validPattern.test("my_session-id_123"));
+  });
+
+  it("rejects path traversal attempts", () => {
+    assert.ok(!validPattern.test("../../etc/passwd"));
+    assert.ok(!validPattern.test("../../../share-tokens"));
+    assert.ok(!validPattern.test("..\\windows\\system32"));
+  });
+
+  it("rejects slashes", () => {
+    assert.ok(!validPattern.test("foo/bar"));
+    assert.ok(!validPattern.test("/absolute/path"));
+  });
+
+  it("rejects dots", () => {
+    assert.ok(!validPattern.test("file.json"));
+    assert.ok(!validPattern.test(".hidden"));
+  });
+
+  it("rejects empty string", () => {
+    assert.ok(!validPattern.test(""));
+  });
+
+  it("rejects spaces", () => {
+    assert.ok(!validPattern.test("session id"));
+  });
+
+  it("rejects special characters", () => {
+    assert.ok(!validPattern.test("id<script>"));
+    assert.ok(!validPattern.test("id'OR'1'='1"));
+    assert.ok(!validPattern.test("id;rm -rf"));
+  });
+});
+
+// ── Danmaku: file persistence ──────────────────────────────
+
+describe("danmaku file persistence", () => {
+  const testDir = join(tmpdir(), "cc-live-danmaku-test-" + Date.now());
+
+  async function loadDanmaku(project) {
+    try {
+      const content = await readFile(join(testDir, `${project}.json`), "utf8");
+      return JSON.parse(content);
+    } catch { return []; }
+  }
+
+  async function saveDanmaku(project, data) {
+    await mkdir(testDir, { recursive: true });
+    await writeFile(join(testDir, `${project}.json`), JSON.stringify(data), "utf8");
+  }
+
+  it("returns empty array for non-existent project", async () => {
+    const result = await loadDanmaku("nonexistent");
+    assert.deepEqual(result, []);
+  });
+
+  it("saves and loads danmaku entries", async () => {
+    const entries = [
+      { id: "abc123", nickname: "快乐水豚", content: "hello", timestamp: "2026-04-10T00:00:00Z" },
+    ];
+    await saveDanmaku("sess1", entries);
+    const loaded = await loadDanmaku("sess1");
+    assert.deepEqual(loaded, entries);
+  });
+
+  it("appends entries correctly", async () => {
+    const entries = [{ id: "1", nickname: "A", content: "first", timestamp: "t1" }];
+    await saveDanmaku("proj2", entries);
+    const existing = await loadDanmaku("proj2");
+    existing.push({ id: "2", nickname: "B", content: "second", timestamp: "t2" });
+    await saveDanmaku("proj2", existing);
+    const loaded = await loadDanmaku("proj2");
+    assert.equal(loaded.length, 2);
+    assert.equal(loaded[0].content, "first");
+    assert.equal(loaded[1].content, "second");
+  });
+
+  it("handles multiple projects independently", async () => {
+    await saveDanmaku("proj-a", [{ id: "a1", content: "A" }]);
+    await saveDanmaku("proj-b", [{ id: "b1", content: "B" }]);
+    assert.equal((await loadDanmaku("proj-a")).length, 1);
+    assert.equal((await loadDanmaku("proj-b")).length, 1);
+    assert.equal((await loadDanmaku("proj-a"))[0].content, "A");
+    assert.equal((await loadDanmaku("proj-b"))[0].content, "B");
+  });
+
+  it("returns empty array for corrupted JSON file", async () => {
+    await mkdir(testDir, { recursive: true });
+    await writeFile(join(testDir, "corrupt.json"), "not valid json{{{", "utf8");
+    const result = await loadDanmaku("corrupt");
+    assert.deepEqual(result, []);
+  });
+
+  // Cleanup
+  it("cleans up test directory", async () => {
+    await rm(testDir, { recursive: true, force: true });
+    assert.ok(true);
   });
 });

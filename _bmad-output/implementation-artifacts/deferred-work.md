@@ -41,3 +41,10 @@
 ## Deferred from: fix-tool-response-rendering (2026-04-09)
 
 - [ ] `var(--fg)` CSS variable used but never defined — lines 446 and 474 in index.html use `var(--fg)` which doesn't exist in `:root` or `[data-theme="dark"]`. Should be `var(--text)` or similar. Pre-existing.
+
+## Deferred from: review of spec-epic4-danmaku-system (2026-04-10)
+
+- [ ] Unbounded danmaku file growth — no max entry count or TTL cleanup per session. Add cap (e.g., last 500 entries) in saveDanmaku, or periodic cleanup of old files.
+- [ ] Read-modify-write race on danmaku files — concurrent POST requests could lose entries. Use per-session mutex or append-only JSONL format. Low priority for current traffic levels.
+- [ ] SSE reconnect danmaku deduplication — after reconnect, history reload may replay danmaku already displayed. Add client-side event ID dedup set.
+- [ ] Mobile danmaku responsiveness — danmaku layer and input bar lack mobile-specific adjustments (smaller font, narrower touch targets).

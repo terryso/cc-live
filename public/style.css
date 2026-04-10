@@ -627,6 +627,20 @@ body {
 .modal button.primary { background: var(--blue); border-color: var(--blue); color: #fff }
 .modal button.primary:hover { opacity: .9 }
 .modal .hint { font-size: 12px; color: var(--dim); margin-top: 8px; line-height: 1.5 }
+.modal-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+}
+.modal-input:focus { border-color: var(--blue) }
 
 /* Shares panel */
 .shares-panel { border-top: 1px solid var(--border); padding: 10px; max-height: 200px; overflow-y: auto }
@@ -759,3 +773,152 @@ body {
   .main-hd { padding: 12px 16px }
   .scroll-nav { right: 16px }
 }
+
+/* Danmaku */
+.danmaku-layer {
+  position: absolute;
+  top: 52px; /* below main-hd */
+  left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.danmaku-item {
+  position: absolute;
+  white-space: nowrap;
+  animation: danmaku-fly linear forwards;
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  right: 0;
+  transform: translateX(100%);
+}
+
+[data-theme="dark"] .danmaku-item {
+  background: rgba(0,0,0,.55);
+}
+
+.danmaku-item-nick {
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+
+@keyframes danmaku-fly {
+  0% { transform: translateX(100%); opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(-100vw); opacity: 0; }
+}
+
+/* Danmaku input bar */
+.danmaku-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  position: relative;
+  z-index: 10;
+}
+
+.danmaku-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 6px;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  transition: background var(--transition), color var(--transition);
+}
+.danmaku-toggle:hover { background: var(--surface-hover) }
+.danmaku-toggle.off { color: var(--dim) }
+.danmaku-toggle.off svg { opacity: .4 }
+
+.danmaku-nick {
+  font-size: 12px;
+  color: var(--blue);
+  cursor: pointer;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.danmaku-nick:hover { text-decoration: underline }
+
+.danmaku-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.danmaku-input:focus { border-color: var(--blue) }
+
+.danmaku-emoji-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text);
+}
+.danmaku-emoji-btn:hover { background: var(--surface-hover) }
+
+.danmaku-emoji-picker {
+  position: absolute;
+  bottom: 48px;
+  right: 60px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 220px;
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+.danmaku-emoji-picker button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+.danmaku-emoji-picker button:hover { background: var(--surface-hover) }
+
+.danmaku-send {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--transition);
+  flex-shrink: 0;
+}
+.danmaku-send:hover { opacity: .85 }

@@ -13,6 +13,7 @@ export let publicOrigin = null;
 export let activeFilter = 'all';
 export let filterBar = null;
 export let filterCount = null;
+export let isDanmakuOn = true;
 
 export function setActiveProject(v) { activeProject = v; }
 export function setLoadedBefore(v) { loadedBefore = v; }
@@ -25,6 +26,7 @@ export function setPublicOrigin(v) { publicOrigin = v; }
 export function setActiveFilter(v) { activeFilter = v; }
 export function setFilterBar(el) { filterBar = el; }
 export function setFilterCount(el) { filterCount = el; }
+export function setIsDanmakuOn(v) { isDanmakuOn = v; }
 
 // Callback to break circular dependency between render.js ↔ api.js
 export let loadMessages = () => {};
