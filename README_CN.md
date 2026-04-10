@@ -1,12 +1,12 @@
-# CC Live
-
-<img src="public/banner.svg" width="100%" alt="CC Live Banner"/>
-
 <div align="center">
 
-<img src="public/logo.svg" width="80" alt="CC Live Logo"/>
+<img src="public/logo.svg" width="60" alt="CC Live Logo"/>
+
+# CC Live
 
 </div>
+
+<img src="public/banner.svg" width="100%" alt="CC Live Banner"/>
 
 <div>
 
