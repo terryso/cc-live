@@ -45,7 +45,8 @@ export async function loadDanmakuHistory(project) {
   const url = '/api/danmaku?project=' + encodeURIComponent(project) + (t ? '&t=' + encodeURIComponent(t) : '');
   const res = await fetch(url);
   if (!res.ok) return [];
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
 }
 
 // ── Danmaku queue & rendering ─────────────────────────────
@@ -126,8 +127,8 @@ function spawnDanmaku(item, isHistory) {
 
 function drainQueue() {
   while (queue.length > 0 && activeCount < MAX_ONSCREEN && isDanmakuOn) {
-    const { item, isHistory } = queue.shift();
-    spawnDanmaku(item, isHistory);
+    const { item } = queue.shift();
+    spawnDanmaku(item, false); // queued items render without history delay
   }
 }
 

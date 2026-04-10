@@ -140,10 +140,11 @@ async function saveDanmaku(project, data) {
 
 // Per-project mutex to prevent read-modify-write races
 async function appendDanmaku(project, entry) {
-  while (danmakuLocks.has(project)) {
-    await new Promise(r => { danmakuLocks.set(project, r); });
+  if (!danmakuLocks.has(project)) danmakuLocks.set(project, []);
+  const q = danmakuLocks.get(project);
+  if (q.length > 0) {
+    await new Promise(r => q.push(r));
   }
-  danmakuLocks.set(project, null);
   try {
     const existing = await loadDanmaku(project);
     existing.push(entry);
@@ -153,9 +154,9 @@ async function appendDanmaku(project, entry) {
     }
     await saveDanmaku(project, existing);
   } finally {
-    const waiters = danmakuLocks.get(project);
-    danmakuLocks.delete(project);
-    if (waiters) waiters();
+    const next = q.shift();
+    if (q.length === 0) danmakuLocks.delete(project);
+    if (next) next();
   }
 }
 
@@ -358,6 +359,7 @@ function readBody(req, maxBytes = 10240) {
     let size = 0;
     let oversized = false;
     req.on("data", (c) => {
+      if (oversized) return;
       size += c.length;
       if (size > maxBytes) { oversized = true; req.destroy(); resolve(null); return; }
       chunks.push(c);

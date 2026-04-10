@@ -809,7 +809,6 @@ body {
   margin-right: 2px;
 }
 
-.danmaku-text {}
 
 @keyframes danmaku-fly {
   0% { transform: translateX(100%); opacity: 1; }
