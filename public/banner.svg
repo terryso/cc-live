@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <!-- Grid pattern -->
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#0e2a1e" stroke-width="0.5"/>
+    </pattern>
+    <!-- Scanlines -->
+    <pattern id="scanlines" width="1280" height="4" patternUnits="userSpaceOnUse">
+      <rect width="1280" height="2" fill="rgba(0,0,0,0.1)"/>
+    </pattern>
+    <!-- Glow filter -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-strong">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#0a0f0d"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+
+  <!-- Ambient glow behind text -->
+  <ellipse cx="640" cy="280" rx="500" ry="200" fill="#00ff88" opacity="0.03"/>
+  <ellipse cx="640" cy="280" rx="300" ry="120" fill="#00ff88" opacity="0.04"/>
+
+  <!-- ===== CC LIVE pixel text ===== -->
+  <g filter="url(#glow)">
+    <!-- Letter C (first) -->
+    <g fill="#00ff88">
+      <!-- Row 1 -->
+      <rect x="260" y="140" width="24" height="24"/>
+      <rect x="284" y="116" width="24" height="24"/>
+      <rect x="308" y="116" width="24" height="24"/>
+      <rect x="332" y="116" width="24" height="24"/>
+      <rect x="356" y="140" width="24" height="24"/>
+
+      <!-- Row 2-4 (left edge) -->
+      <rect x="260" y="164" width="24" height="24"/>
+      <rect x="260" y="188" width="24" height="24"/>
+      <rect x="260" y="212" width="24" height="24"/>
+
+      <!-- Row 5 (bottom curve) -->
+      <rect x="260" y="236" width="24" height="24"/>
+      <rect x="284" y="260" width="24" height="24"/>
+      <rect x="308" y="260" width="24" height="24"/>
+      <rect x="332" y="260" width="24" height="24"/>
+      <rect x="356" y="236" width="24" height="24"/>
+    </g>
+
+    <!-- Letter C (second) -->
+    <g fill="#00ff88">
+      <rect x="420" y="140" width="24" height="24"/>
+      <rect x="444" y="116" width="24" height="24"/>
+      <rect x="468" y="116" width="24" height="24"/>
+      <rect x="492" y="116" width="24" height="24"/>
+      <rect x="516" y="140" width="24" height="24"/>
+
+      <rect x="420" y="164" width="24" height="24"/>
+      <rect x="420" y="188" width="24" height="24"/>
+      <rect x="420" y="212" width="24" height="24"/>
+
+      <rect x="420" y="236" width="24" height="24"/>
+      <rect x="444" y="260" width="24" height="24"/>
+      <rect x="468" y="260" width="24" height="24"/>
+      <rect x="492" y="260" width="24" height="24"/>
+      <rect x="516" y="236" width="24" height="24"/>
+    </g>
+
+    <!-- Letter L -->
+    <g fill="#00ff88">
+      <rect x="580" y="116" width="24" height="24"/>
+      <rect x="580" y="140" width="24" height="24"/>
+      <rect x="580" y="164" width="24" height="24"/>
+      <rect x="580" y="188" width="24" height="24"/>
+      <rect x="580" y="212" width="24" height="24"/>
+      <rect x="580" y="236" width="24" height="24"/>
+      <rect x="580" y="260" width="24" height="24"/>
+
+      <rect x="604" y="260" width="24" height="24"/>
+      <rect x="628" y="260" width="24" height="24"/>
+      <rect x="652" y="260" width="24" height="24"/>
+      <rect x="676" y="260" width="24" height="24"/>
+    </g>
+
+    <!-- Letter I -->
+    <g fill="#00ff88">
+      <rect x="740" y="116" width="24" height="24"/>
+      <rect x="764" y="116" width="24" height="24"/>
+      <rect x="788" y="116" width="24" height="24"/>
+
+      <rect x="764" y="140" width="24" height="24"/>
+      <rect x="764" y="164" width="24" height="24"/>
+      <rect x="764" y="188" width="24" height="24"/>
+      <rect x="764" y="212" width="24" height="24"/>
+      <rect x="764" y="236" width="24" height="24"/>
+
+      <rect x="740" y="260" width="24" height="24"/>
+      <rect x="764" y="260" width="24" height="24"/>
+      <rect x="788" y="260" width="24" height="24"/>
+    </g>
+
+    <!-- Letter V -->
+    <g fill="#00ff88">
+      <rect x="860" y="116" width="24" height="24"/>
+      <rect x="860" y="140" width="24" height="24"/>
+      <rect x="860" y="164" width="24" height="24"/>
+      <rect x="860" y="188" width="24" height="24"/>
+
+      <rect x="884" y="212" width="24" height="24"/>
+      <rect x="908" y="236" width="24" height="24"/>
+      <rect x="932" y="260" width="24" height="24"/>
+
+      <rect x="956" y="236" width="24" height="24"/>
+      <rect x="980" y="212" width="24" height="24"/>
+
+      <rect x="1004" y="188" width="24" height="24"/>
+      <rect x="1004" y="164" width="24" height="24"/>
+      <rect x="1004" y="140" width="24" height="24"/>
+      <rect x="1004" y="116" width="24" height="24"/>
+    </g>
+
+    <!-- Letter E -->
+    <g fill="#00ff88">
+      <rect x="1060" y="116" width="24" height="24"/>
+      <rect x="1084" y="116" width="24" height="24"/>
+      <rect x="1108" y="116" width="24" height="24"/>
+      <rect x="1132" y="116" width="24" height="24"/>
+
+      <rect x="1060" y="140" width="24" height="24"/>
+      <rect x="1060" y="164" width="24" height="24"/>
+      <rect x="1084" y="164" width="24" height="24"/>
+      <rect x="1108" y="164" width="24" height="24"/>
+
+      <rect x="1060" y="188" width="24" height="24"/>
+      <rect x="1060" y="212" width="24" height="24"/>
+
+      <rect x="1060" y="236" width="24" height="24"/>
+      <rect x="1084" y="260" width="24" height="24"/>
+      <rect x="1108" y="260" width="24" height="24"/>
+      <rect x="1132" y="260" width="24" height="24"/>
+      <rect x="1060" y="260" width="24" height="24"/>
+    </g>
+  </g>
+
+  <!-- LIVE red dot next to title -->
+  <rect x="1160" y="124" width="20" height="20" fill="#ff3b3b" rx="2" filter="url(#glow)">
+    <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- Subtitle -->
+  <text x="640" y="330" text-anchor="middle" font-family="monospace" font-size="18" fill="#4a7a5a" letter-spacing="6">
+    REAL-TIME VIEWER FOR CLAUDE CODE SESSIONS
+  </text>
+
+  <!-- ===== Bottom decoration: signal waveform ===== -->
+  <g filter="url(#glow-strong)">
+    <polyline
+      points="0,520 40,520 60,500 80,520 100,520 120,500 140,480 160,500 180,520 200,520 220,500 240,480 260,460 280,480 300,500 320,520 340,520 360,500 380,520 400,520 420,500 440,480 460,460 480,440 500,460 520,480 540,500 560,520 580,520 600,500 620,480 640,460 660,440 680,420 700,440 720,460 740,480 760,500 780,520 800,520 820,500 840,520 860,520 880,500 900,480 920,460 940,440 960,420 980,440 1000,460 1020,480 1040,500 1060,520 1080,520 1100,500 1120,520 1140,520 1160,500 1180,480 1200,500 1220,520 1240,520 1260,520 1280,520"
+      fill="none" stroke="#00ff88" stroke-width="2" opacity="0.6"/>
+    <polyline
+      points="0,530 40,530 60,510 80,530 100,530 120,510 140,490 160,510 180,530 200,530 220,510 240,490 260,470 280,490 300,510 320,530 340,530 360,510 380,530 400,530 420,510 440,490 460,470 480,450 500,470 520,490 540,510 560,530 580,530 600,510 620,490 640,470 660,450 680,430 700,450 720,470 740,490 760,510 780,530 800,530 820,510 840,530 860,530 880,510 900,490 920,470 940,450 960,430 980,450 1000,470 1020,490 1040,510 1060,530 1080,530 1100,510 1120,530 1140,530 1160,510 1180,490 1200,510 1220,530 1240,530 1260,530 1280,530"
+      fill="none" stroke="#00ff88" stroke-width="1" opacity="0.3"/>
+  </g>
+
+  <!-- Bottom scanline overlay -->
+  <rect y="400" width="1280" height="240" fill="url(#scanlines)" opacity="0.3"/>
+
+  <!-- Corner decorations -->
+  <g stroke="#00ff88" stroke-width="1" opacity="0.15">
+    <!-- Top-left -->
+    <line x1="20" y1="20" x2="60" y2="20"/>
+    <line x1="20" y1="20" x2="20" y2="60"/>
+    <!-- Top-right -->
+    <line x1="1260" y1="20" x2="1220" y2="20"/>
+    <line x1="1260" y1="20" x2="1260" y2="60"/>
+    <!-- Bottom-left -->
+    <line x1="20" y1="620" x2="60" y2="620"/>
+    <line x1="20" y1="620" x2="20" y2="580"/>
+    <!-- Bottom-right -->
+    <line x1="1260" y1="620" x2="1220" y2="620"/>
+    <line x1="1260" y1="620" x2="1260" y2="580"/>
+  </g>
+
+  <!-- Floating code fragments (decorative) -->
+  <g font-family="monospace" font-size="11" opacity="0.12" fill="#00ff88">
+    <text x="60" y="80">&gt; node server.js</text>
+    <text x="60" y="100">Listening on :3456...</text>
+    <text x="60" y="380">// watch your AI code live</text>
+    <text x="1000" y="80">SSE stream connected</text>
+    <text x="1000" y="100">npm run share</text>
+    <text x="1000" y="380">zero dependencies ✓</text>
+  </g>
+</svg>

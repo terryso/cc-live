@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#0d1117"/>
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff88" stroke-width="1" opacity="0.25"/>
+
+  <!-- Signal waves (broadcast / live) -->
+  <g fill="none" stroke="#00ff88" stroke-width="2" stroke-linecap="round">
+    <path d="M6 20 Q2 32 6 44" opacity="0.2"/>
+    <path d="M11 24 Q8 32 11 40" opacity="0.35"/>
+    <path d="M16 27 Q14 32 16 37" opacity="0.5"/>
+  </g>
+  <g fill="none" stroke="#00ff88" stroke-width="2" stroke-linecap="round">
+    <path d="M58 20 Q62 32 58 44" opacity="0.2"/>
+    <path d="M53 24 Q56 32 53 40" opacity="0.35"/>
+    <path d="M48 27 Q50 32 48 37" opacity="0.5"/>
+  </g>
+
+  <!-- Eye shape - pixel art style (viewing/watching) -->
+  <g fill="#00ff88">
+    <!-- Top of eye -->
+    <rect x="16" y="22" width="4" height="4"/>
+    <rect x="20" y="18" width="4" height="4"/>
+    <rect x="24" y="16" width="4" height="4"/>
+    <rect x="28" y="14" width="4" height="4"/>
+    <rect x="32" y="14" width="4" height="4"/>
+    <rect x="36" y="16" width="4" height="4"/>
+    <rect x="40" y="18" width="4" height="4"/>
+    <rect x="44" y="22" width="4" height="4"/>
+
+    <!-- Left side -->
+    <rect x="14" y="26" width="4" height="4"/>
+    <rect x="12" y="30" width="4" height="4"/>
+    <rect x="14" y="34" width="4" height="4"/>
+
+    <!-- Right side -->
+    <rect x="46" y="26" width="4" height="4"/>
+    <rect x="48" y="30" width="4" height="4"/>
+    <rect x="46" y="34" width="4" height="4"/>
+
+    <!-- Bottom of eye -->
+    <rect x="16" y="38" width="4" height="4"/>
+    <rect x="20" y="42" width="4" height="4"/>
+    <rect x="24" y="44" width="4" height="4"/>
+    <rect x="28" y="46" width="4" height="4"/>
+    <rect x="32" y="46" width="4" height="4"/>
+    <rect x="36" y="44" width="4" height="4"/>
+    <rect x="40" y="42" width="4" height="4"/>
+    <rect x="44" y="38" width="4" height="4"/>
+
+    <!-- Iris ring -->
+    <rect x="24" y="24" width="4" height="4"/>
+    <rect x="36" y="24" width="4" height="4"/>
+    <rect x="22" y="26" width="4" height="4"/>
+    <rect x="38" y="26" width="4" height="4"/>
+    <rect x="22" y="28" width="4" height="4"/>
+    <rect x="38" y="28" width="4" height="4"/>
+    <rect x="20" y="30" width="4" height="4"/>
+    <rect x="40" y="30" width="4" height="4"/>
+    <rect x="22" y="32" width="4" height="4"/>
+    <rect x="38" y="32" width="4" height="4"/>
+    <rect x="22" y="34" width="4" height="4"/>
+    <rect x="38" y="34" width="4" height="4"/>
+    <rect x="24" y="36" width="4" height="4"/>
+    <rect x="36" y="36" width="4" height="4"/>
+  </g>
+
+  <!-- Pupil - code brackets < /> -->
+  <g fill="#0d1117">
+    <!-- Clear iris interior -->
+    <rect x="26" y="26" width="10" height="10"/>
+  </g>
+
+  <!-- Code symbol: </> inside the pupil -->
+  <g fill="#00ff88">
+    <!-- < -->
+    <rect x="24" y="29" width="2" height="2"/>
+    <rect x="26" y="27" width="2" height="2"/>
+    <rect x="26" y="31" width="2" height="2"/>
+    <rect x="26" y="33" width="2" height="2"/>
+    <rect x="24" y="35" width="2" height="2"/>
+
+    <!-- / -->
+    <rect x="30" y="27" width="2" height="2"/>
+    <rect x="30" y="29" width="2" height="2"/>
+    <rect x="30" y="31" width="2" height="2"/>
+    <rect x="30" y="33" width="2" height="2"/>
+    <rect x="30" y="35" width="2" height="2"/>
+
+    <!-- > -->
+    <rect x="34" y="29" width="2" height="2"/>
+    <rect x="32" y="27" width="2" height="2"/>
+    <rect x="32" y="31" width="2" height="2"/>
+    <rect x="32" y="33" width="2" height="2"/>
+    <rect x="34" y="35" width="2" height="2"/>
+  </g>
+
+  <!-- Pupil highlight -->
+  <rect x="26" y="27" width="2" height="2" fill="#b5ffb5" opacity="0.7"/>
+
+  <!-- LIVE dot top-right -->
+  <rect x="50" y="8" width="4" height="4" fill="#ff3b3b" rx="1">
+    <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite"/>
+  </rect>
+</svg>

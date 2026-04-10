@@ -1,5 +1,7 @@
 # CC Live
 
+<img src="public/banner.svg" width="100%" alt="CC Live Banner"/>
+
 <div>
 
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
