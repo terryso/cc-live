@@ -352,6 +352,74 @@ function listProjects() {
   return [...projects.values()].sort((a, b) => b.totalMessages - a.totalMessages);
 }
 
+function computeProjectStats(projectName) {
+  const now = Date.now();
+  const toolCounts = {};
+  const files = new Set();
+  let totalMessages = 0;
+  let totalToolCalls = 0;
+  let thinkingCount = 0;
+  let userModel = "";
+  const timeline = new Array(30).fill(0);
+  const timelineTools = new Array(30).fill(0);
+  let recentCount = 0;
+  let firstTs = Infinity;
+  let lastTs = 0;
+
+  for (const [, s] of sessions) {
+    if (s.projectName !== projectName) continue;
+    for (const m of s.messages) {
+      totalMessages++;
+      const ts = m.timestamp ? new Date(m.timestamp).getTime() : 0;
+      if (ts > 0) {
+        if (ts < firstTs) firstTs = ts;
+        if (ts > lastTs) lastTs = ts;
+        const minsAgo = Math.floor((now - ts) / 60000);
+        if (minsAgo >= 0 && minsAgo < 30) timeline[29 - minsAgo]++;
+        if (ts > now - 60000) recentCount++;
+      }
+      if (m.display?.type === "blocks" && Array.isArray(m.display.parts)) {
+        for (const p of m.display.parts) {
+          if (p.type === "tool_use") {
+            totalToolCalls++;
+            const name = p.toolName || "unknown";
+            toolCounts[name] = (toolCounts[name] || 0) + 1;
+            if (p.args) {
+              try {
+                const args = JSON.parse(p.args);
+                if (args.file_path) files.add(args.file_path);
+              } catch {}
+            }
+            if (ts > 0) {
+              const minsAgo = Math.floor((now - ts) / 60000);
+              if (minsAgo >= 0 && minsAgo < 30) timelineTools[29 - minsAgo]++;
+            }
+          }
+          if (p.type === "thinking") thinkingCount++;
+        }
+        if (m.role === "assistant" && m.display.model) userModel = m.display.model;
+      }
+    }
+  }
+
+  const topTools = Object.entries(toolCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const durationMs = (firstTs < Infinity && lastTs > 0) ? lastTs - firstTs : 0;
+
+  return {
+    totalMessages,
+    totalToolCalls,
+    filesTouched: files.size,
+    thinkingCount,
+    durationMs,
+    velocity: recentCount,
+    model: userModel,
+    timeline,
+    timelineTools,
+    topTools,
+    topToolMax: topTools.length ? topTools[0][1] : 1,
+  };
+}
+
 // ── Read JSON body helper ───────────────────────────────
 function readBody(req, maxBytes = 10240) {
   return new Promise((resolve) => {
@@ -450,6 +518,16 @@ const server = createServer(async (req, res) => {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "token not found" }));
     }
+    return;
+  }
+
+  // ── Project stats ──────────────────────────────────────
+  if (url.pathname === "/api/project-stats") {
+    const project = url.searchParams.get("project");
+    if (!project) { res.writeHead(400); res.end(); return; }
+    if (!local && (!share || share.project !== project)) { res.writeHead(200, "application/json"); res.end("{}"); return; }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(computeProjectStats(project)));
     return;
   }
 

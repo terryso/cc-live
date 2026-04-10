@@ -2,6 +2,7 @@ import { setFilterBar, setFilterCount, setActiveFilter, activeFilter, setLoadMes
 import { toggleThinking, applyFilter, revokeShare } from './render.js';
 import { connect, closeModal, copyShareUrl, createShare, loadMessages } from './api.js';
 import { getNickname, setNickname, sendDanmaku, toggleDanmaku, EMOJIS } from './danmaku.js';
+import { initDashboard, updateDashboard } from './dashboard.js';
 
 // Expose functions called from dynamically generated HTML
 window._toggleThinking = toggleThinking;
@@ -217,4 +218,5 @@ danmakuToggle.addEventListener('click', () => {
 
 // --- Connect ---
 setLoadMessages(loadMessages);
+initDashboard();
 connect();

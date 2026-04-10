@@ -308,7 +308,7 @@ export function getProjects() {
     if (!groups.has(key)) groups.set(key, { sessionCount: 0, totalMessages: 0 });
     const g = groups.get(key);
     g.sessionCount++;
-    g.totalMessages += s.messages.length;
+    g.totalMessages += s.messageCount || s.messages.length;
   }
   return [...groups.entries()].sort((a, b) => b[1].totalMessages - a[1].totalMessages);
 }

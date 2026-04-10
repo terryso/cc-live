@@ -12,6 +12,8 @@ import {
 } from './render.js';
 import { esc } from './utils.js';
 import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
+import { updateDashboard } from './dashboard.js';
+
 
 // --- SSE ---
 export function getSSEUrl() {
@@ -44,9 +46,10 @@ export function connect() {
     const s = sessions.get(m.sessionId);
     if(!s) return;
     s.messages.push(m);
+    s.messageCount = (s.messageCount || 0) + 1;
     if(s.messages.length>500) s.messages=s.messages.slice(-300);
     markActive(s.projectName);
-    if(activeProject && s.projectName === activeProject) appendMsg(m);
+    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateDashboard(); }
   });
   es.addEventListener('share-info', e => {
     const info = JSON.parse(e.data);
@@ -149,6 +152,7 @@ export async function loadMessages() {
     }
   } catch { const indicator = el.querySelector('.loading-indicator'); if (indicator) indicator.remove(); setIsLoadingHistory(false); }
   setIsLoadingHistory(false);
+  updateDashboard();
 }
 
 // --- Share API ---
