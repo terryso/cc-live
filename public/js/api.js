@@ -82,7 +82,7 @@ export function connect() {
 
 // --- Messages API ---
 export async function loadMessages() {
-  showFilterBar();
+  // showFilterBar();
   const el = document.getElementById('msgs');
   const isFirstPage = !loadedBefore;
   if (isFirstPage) el.innerHTML = '';

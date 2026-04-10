@@ -344,7 +344,7 @@ export function selectProject(proj) {
   filterCount.textContent = '';
   document.getElementById('title').textContent = proj;
   document.getElementById('path').textContent = '';
-  showFilterBar();
+  // showFilterBar();
   renderList();
   loadMessages();
 }

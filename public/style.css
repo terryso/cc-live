@@ -770,7 +770,7 @@ body {
   text-align: center;
   color: var(--muted);
   font-size: 13px;
-  background: var(--bg);
+  background: transparent;
   animation: fadeIn 0.3s ease;
 }
 
@@ -1173,26 +1173,29 @@ body {
   pointer-events: auto;
 }
 
-.app.zen .sidebar,
 .app.zen .sidebar-overlay,
-.app.zen .filter-bar,
 .app.zen .dashboard,
 .app.zen .scroll-nav {
   opacity: 0;
   pointer-events: none;
   transition: opacity .4s ease;
 }
+.app.zen .sidebar {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  min-width: 0;
+  border: none;
+  transition: opacity .4s ease;
+}
+.app.zen .filter-bar {
+  display: none !important;
+}
 .app.zen #danmaku-bar {
   display: none !important;
 }
 .app.zen .main-hd {
   display: none;
-}
-.app.zen .sidebar {
-  width: 0;
-  min-width: 0;
-  border: none;
-  overflow: hidden;
 }
 .app.zen .main {
   width: 100%;
