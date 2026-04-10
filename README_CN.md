@@ -2,6 +2,12 @@
 
 <img src="public/banner.svg" width="100%" alt="CC Live Banner"/>
 
+<div align="center">
+
+<img src="public/logo.svg" width="80" alt="CC Live Logo"/>
+
+</div>
+
 <div>
 
 [![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen?style=flat-square)](https://nodejs.org/)
