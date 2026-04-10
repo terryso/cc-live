@@ -82,6 +82,11 @@ This document provides the complete epic and story breakdown for cc-watch, decom
 | FR17 | Epic 3 | 纯文本结果 markdown 渲染 |
 | FR18 | 全部 Epic | HTML 净化（横切安全约束） |
 | FR19 | 全部 Epic | 格式化器输出安全（横切安全约束） |
+| FR20 | Epic 4 | 弹幕 API + 文件持久化 |
+| FR21 | Epic 4 | 随机昵称生成 + localStorage |
+| FR22 | Epic 4 | 弹幕输入 UI（文字 + emoji） |
+| FR23 | Epic 4 | 弹幕/昵称长度限制 |
+| FR24 | Epic 4 | 弹幕 CSS 飘屏 + 历史回放 |
 
 ## Epic List
 
@@ -398,27 +403,155 @@ So that 普通文本内容也有合适的格式（列表、粗体、链接等）
 
 ---
 
+## Epic 4: 弹幕互动系统
+
+**目标：** 在分享页增加弹幕功能，让观众通过飘过的弹幕参与互动，营造直播氛围。弹幕按时间先后顺序持续飘出，历史弹幕在页面加载时自动回放。
+
+**FRs:** FR20, FR21, FR22, FR23, FR24
+**横切安全：** FR18
+
+### Story 4.1: 弹幕后端 API 与数据存储
+
+As a 系统,
+I want 提供弹幕的创建和查询 API，并将弹幕持久化到文件,
+So that 弹幕数据不丢失，回放时可以加载历史弹幕。
+
+**Acceptance Criteria:**
+
+**Given** 一个有效的 share token 对应的项目会话
+**When** 观众通过 POST `/api/danmaku` 提交弹幕（包含 `sessionId`、`nickname`、`content`）
+**Then** 服务端将弹幕存入 `data/danmaku/{sessionId}.json`，每条记录包含 `{id, nickname, content, timestamp}`
+**And** 弹幕内容长度限制 200 字符，超出截断
+**And** nickname 长度限制 20 字符
+**And** 弹幕内容经过 HTML 实体转义后再存储（FR18）
+**And** 新弹幕通过 SSE `danmaku` 事件广播给该会话的所有连接客户端
+
+**Given** 一个有效的 share token
+**When** 观众通过 GET `/api/danmaku?sessionId=xxx` 请求历史弹幕
+**Then** 返回该会话的所有历史弹幕，按 timestamp 升序排列
+**And** 非分享页访问（无有效 token）返回 403
+
+**FRs:** FR20, FR18
+**NFRs:** 零外部依赖，使用 Node.js 内置 `fs/promises`
+
+### Story 4.2: 昵称管理
+
+As a 观众,
+I want 进入分享页时自动获得一个随机昵称，且可以随时修改,
+So that 我有身份感但不需要注册登录。
+
+**Acceptance Criteria:**
+
+**Given** 观众首次打开分享页
+**When** 页面加载完成
+**Then** 系统自动生成一个随机昵称（格式：形容词+名词，如"快乐水豚"），显示在弹幕输入框旁
+**And** 昵称通过 localStorage 持久化，刷新页面不丢失
+
+**Given** 观众点击昵称
+**When** 修改昵称并确认
+**Then** 昵称更新并保存到 localStorage
+**And** 后续发送的弹幕使用新昵称
+**And** 昵称长度限制 20 字符
+
+**FRs:** FR21
+
+### Story 4.3: 弹幕输入与发送 UI
+
+As a 观众,
+I want 在分享页底部有一个弹幕输入框，输入文字或 emoji 后发送弹幕,
+So that 我能方便地参与互动。
+
+**Acceptance Criteria:**
+
+**Given** 观众在分享页
+**When** 页面加载完成
+**Then** 页面底部显示弹幕输入区域：昵称显示 + 文本输入框 + emoji 选择器 + 发送按钮
+**And** 输入框 placeholder 为"发条弹幕..."
+**And** 输入框最大 200 字符，超出时无法继续输入
+
+**Given** 观众在输入框中输入内容
+**When** 按回车或点击发送按钮
+**Then** 弹幕发送到服务端，输入框清空
+**And** 发送成功后自己的弹幕立即在屏幕上飘出
+**And** 空内容不发送
+
+**Given** 观众点击 emoji 选择器
+**When** 选择一个 emoji
+**Then** emoji 插入到输入框光标位置
+
+**FRs:** FR22, FR23
+
+### Story 4.4: 弹幕飘屏渲染
+
+As a 观众,
+I want 看到弹幕从屏幕右侧飘到左侧，像B站弹幕一样,
+So that 直播氛围感更强。
+
+**Acceptance Criteria:**
+
+**Given** 一条弹幕到达（实时推送或历史回放）
+**When** 系统渲染该弹幕
+**Then** 弹幕从屏幕右侧飘入，匀速移动到左侧消失
+**And** 弹幕样式：半透明背景色、昵称用不同颜色高亮、内容文字清晰可读
+**And** 多条弹幕垂直错开，避免完全重叠
+**And** 弹幕使用 CSS animation 实现，不占用 JS 主线程（60fps 流畅）
+**And** 屏幕上同时飘过的弹幕不超过 15 条，超出排队等待
+
+**Given** 页面首次加载
+**When** 历史弹幕加载完成
+**Then** 历史弹幕一次性快速铺开——所有弹幕同时开始飘动，各自带随机垂直位置和随机动画延迟（0-3 秒），几秒内全部飘完
+**And** 历史弹幕和实时弹幕走同一个飘屏队列，互不阻塞
+**And** 用户自己发的弹幕立即飘出，不排队等历史弹幕
+
+**Given** 观众点击弹幕开关按钮
+**When** 关闭弹幕
+**Then** 屏幕上所有飘动中的弹幕立即消失，新弹幕不再飘出（排队但不渲染）
+**And** 弹幕输入区域保持可见，仍可发送弹幕
+**When** 重新开启弹幕
+**Then** 排队中的弹幕和后续新弹幕恢复飘出
+
+**FRs:** FR24
+
+---
+
+## Requirements Addendum
+
+### 新增功能需求（Epic 4）
+
+- FR20: 系统能提供弹幕的创建（POST）和查询（GET）API，弹幕数据持久化到文件系统
+- FR21: 系统能为观众自动生成随机昵称，支持修改，通过 localStorage 持久化
+- FR22: 系统能在分享页提供弹幕输入 UI，支持文字和 emoji 输入
+- FR23: 系统能限制弹幕内容长度（200 字符）和昵称长度（20 字符）
+- FR24: 系统能将弹幕以 CSS 动画方式从右侧飘到左侧渲染，支持历史回放和实时推送，并提供弹幕开关按钮
+
+---
+
 ## Validation Summary
 
-### FR Coverage: 19/19 ✅
+### FR Coverage: 24/24 ✅
 
 - Epic 1: FR1, FR2, FR3 (3 FRs)
 - Epic 2: FR4, FR5, FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR13 (10 FRs)
 - Epic 3: FR14, FR15, FR16, FR17 (4 FRs)
+- Epic 4: FR20, FR21, FR22, FR23, FR24 (5 FRs)
 - 横切: FR18, FR19 (覆盖所有 Epic)
 
-### Story Count: 15 Stories
+### Story Count: 19 Stories
 
 - Epic 1: 3 stories
 - Epic 2: 8 stories
 - Epic 3: 4 stories
+- Epic 4: 4 stories
 
 ### Dependency Check ✅
 
 - Epic 1 → 独立，无前置依赖
 - Epic 2 → 独立，无前置依赖
 - Epic 3 → 独立，无前置依赖
-- 每个 Epic 内的 stories 按序号递进，无前向依赖
+- Epic 4 → 独立，无前置依赖（仅需分享页基础设施已就绪，当前已实现）
+- 每个 Epic 内的 stories 按序号递进：
+  - Epic 4: 4.1（后端） → 4.2（昵称） → 4.3（输入UI） → 4.4（飘屏渲染）
+  - 4.2 和 4.1 可并行；4.3 依赖 4.1 和 4.2；4.4 依赖 4.1
 
 ### Quality Check ✅
 
