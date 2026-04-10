@@ -12,7 +12,6 @@ import {
 } from './render.js';
 import { esc } from './utils.js';
 import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
-import { showKillFeed } from './killfeed.js';
 
 // --- SSE ---
 export function getSSEUrl() {
@@ -67,9 +66,6 @@ export function connect() {
   });
   es.addEventListener('danmaku', e => {
     try { handleDanmakuEvent(JSON.parse(e.data)); } catch {}
-  });
-  es.addEventListener('kill-feed', e => {
-    try { showKillFeed(JSON.parse(e.data)); } catch {}
   });
   es.addEventListener('viewer_count', e => {
     try { const { count } = JSON.parse(e.data); if (typeof count === 'number') document.getElementById('status').textContent = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`; } catch {}

@@ -4,7 +4,7 @@ import { join, dirname } from "path";
 import { homedir } from "os";
 import { randomBytes, randomUUID } from "crypto";
 import { fileURLToPath } from "url";
-import { SKIP_TYPES, BASE_SENSITIVE_PATTERNS, loadCustomPatterns, redactSensitive, parseLine, extractDisplayMessage, validateShareTokenEntries, detectKillFeedEvent } from "./lib.js";
+import { SKIP_TYPES, BASE_SENSITIVE_PATTERNS, loadCustomPatterns, redactSensitive, parseLine, extractDisplayMessage, validateShareTokenEntries } from "./lib.js";
 
 // ── Load .env ───────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,6 @@ const clients = new Map(); // clientId -> { res, token? }
 const watchedFiles = new Map(); // filepath -> { offset, sessionId, projectName, interval }
 const sessions = new Map(); // sessionId -> { projectName, messages[], active }
 const shareTokens = new Map(); // token -> { project, createdAt }
-const killFeedCtx = new Map(); // sessionId -> { consecutiveReads }
 
 // ── SSE helpers ─────────────────────────────────────────
 function sseSend(res, event, data) {
@@ -51,10 +50,10 @@ setInterval(() => {
   }
 }, 15000);
 
-function broadcast(event, data, projectName, opts = {}) {
+function broadcast(event, data, projectName) {
   for (const [, c] of clients) {
-    // Global events (like kill-feed) bypass project filtering
-    if (!opts.global && c.token) {
+    // If client is on a share token, only send if project matches
+    if (c.token) {
       const share = shareTokens.get(c.token);
       if (!share || share.project !== projectName) continue;
     }
@@ -255,12 +254,6 @@ async function watchFile(filePath, sessionId, projectName, fromByteOffset) {
           if (session.messages.length > 500) session.messages = session.messages.slice(-300);
         }
         broadcast("message", { sessionId, ...msg }, projectName);
-
-        // Kill feed event detection
-        const kfCtx = killFeedCtx.get(sessionId) || { consecutiveReads: 0 };
-        const kfEvent = detectKillFeedEvent(msg, kfCtx);
-        killFeedCtx.set(sessionId, kfCtx);
-        if (kfEvent) broadcast("kill-feed", kfEvent, projectName, { global: true });
       }
     } catch {}
   }, 500);
@@ -527,24 +520,6 @@ const server = createServer(async (req, res) => {
     broadcast("danmaku", entry, project);
     res.writeHead(201, { "Content-Type": "application/json" });
     res.end(JSON.stringify(entry));
-    return;
-  }
-
-  // ── Kill feed test endpoint (local only) ──────────────
-  if (req.method === "POST" && url.pathname === "/api/kill-feed-test") {
-    if (!local) { res.writeHead(403); res.end(); return; }
-    const project = url.searchParams.get("project");
-    const testEvents = [
-      { type: "code_surge", icon: "📝", text: "AI wrote 80 lines of code" },
-      { type: "bug_fix", icon: "🔥", text: "Fixing a bug..." },
-      { type: "tests_pass", icon: "✅", text: "Tests passed!" },
-      { type: "deep_dive", icon: "🔍", text: "Deep investigation in progress" },
-    ];
-    const idx = Math.floor(Math.random() * testEvents.length);
-    const ev = testEvents[idx];
-    broadcast("kill-feed", ev, project || null, { global: true });
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(ev));
     return;
   }
 
