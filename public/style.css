@@ -1177,11 +1177,13 @@ body {
 .app.zen .sidebar-overlay,
 .app.zen .filter-bar,
 .app.zen .dashboard,
-.app.zen #danmaku-bar,
 .app.zen .scroll-nav {
   opacity: 0;
   pointer-events: none;
   transition: opacity .4s ease;
+}
+.app.zen #danmaku-bar {
+  display: none !important;
 }
 .app.zen .main-hd {
   display: none;
