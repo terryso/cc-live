@@ -39,6 +39,8 @@ export function detectContentType(text) {
   var tagCount = (text.match(/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s|>)/g) || []).length;
   if (tagCount > 5) return 'code';
   var lines = text.split('\n');
+  // Detect grep/search output with line numbers (e.g., "67: <div ...>")
+  if (lines.some(l => /^\d+[:-]\s+\S/.test(l.trim()))) return 'code';
   var indented = 0;
   for (var i = 0; i < lines.length; i++) { if (/^\s{2,}/.test(lines[i])) indented++; }
   if (lines.length > 3 && indented / lines.length > 0.4) return 'code';

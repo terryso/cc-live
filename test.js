@@ -942,6 +942,18 @@ describe("detectContentType", () => {
     const html = '  \n  <!DOCTYPE html>\n<html>\n<body>hi</body>\n</html>';
     assert.equal(detectContentType(html), "code");
   });
+
+  it("detects grep output with line numbers as code", () => {
+    assert.equal(detectContentType('67:   <div id="danmaku-bar" class="danmaku-bar" style="display:none">'), "code");
+  });
+
+  it("detects multi-line grep output as code", () => {
+    assert.equal(detectContentType('42: const foo = bar;\n43: console.log(foo)'), "code");
+  });
+
+  it("detects grep output with dash separator as code", () => {
+    assert.equal(detectContentType("10- some matched text"), "code");
+  });
 });
 
 // ── Danmaku: project name validation ──────────────────────────
