@@ -31,9 +31,13 @@ export function renderDiff(text) {
 export function detectContentType(text) {
   var t = text.trim();
   if (/^```\w*/.test(t)) return 'code';
+  if (/^<!DOCTYPE\s+html/i.test(t) || /^<html[\s>]/i.test(t)) return 'code';
   if ((t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'))) {
     try { JSON.parse(t); return 'json'; } catch(e) {}
   }
+  // Detect HTML by counting tags
+  var tagCount = (text.match(/<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s|>)/g) || []).length;
+  if (tagCount > 5) return 'code';
   var lines = text.split('\n');
   var indented = 0;
   for (var i = 0; i < lines.length; i++) { if (/^\s{2,}/.test(lines[i])) indented++; }

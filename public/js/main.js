@@ -220,3 +220,49 @@ danmakuToggle.addEventListener('click', () => {
 setLoadMessages(loadMessages);
 initDashboard();
 connect();
+
+// --- Zen Mode ---
+const appEl = document.querySelector('.app');
+const zenExit = document.getElementById('zenExit');
+let zenHoverTimeout = null;
+
+function toggleZen(force) {
+  const isZen = appEl.classList.toggle('zen', force);
+  if (isZen) {
+    // Hide exit button, show on mouse move to top
+    zenExit.classList.remove('zen-exit-visible');
+  } else {
+    zenExit.classList.remove('zen-exit-visible');
+  }
+}
+
+function handleZenMouseMove(e) {
+  if (!appEl.classList.contains('zen')) return;
+  if (e.clientY < 60) {
+    zenExit.classList.add('zen-exit-visible');
+    clearTimeout(zenHoverTimeout);
+    zenHoverTimeout = setTimeout(() => {
+      zenExit.classList.remove('zen-exit-visible');
+    }, 3000);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  // Don't toggle when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    toggleZen();
+  }
+  if (e.key === 'Escape' && appEl.classList.contains('zen')) {
+    e.preventDefault();
+    toggleZen(false);
+  }
+});
+
+document.addEventListener('mousemove', handleZenMouseMove);
+zenExit.addEventListener('click', () => toggleZen(false));
+
+// Zen mode button in header
+const zenToggle = document.getElementById('zenToggle');
+zenToggle.addEventListener('click', () => toggleZen());

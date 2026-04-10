@@ -917,6 +917,31 @@ describe("detectContentType", () => {
     const text = "  a\n  b\n  c";
     assert.equal(detectContentType(text), "text");
   });
+
+  it("detects DOCTYPE html as code", () => {
+    const html = '<!DOCTYPE html>\n<html lang="en">\n<head><title>Test</title></head>\n<body>Hello</body>\n</html>';
+    assert.equal(detectContentType(html), "code");
+  });
+
+  it("detects <html> opening tag as code", () => {
+    const html = '<html>\n<body>content</body>\n</html>';
+    assert.equal(detectContentType(html), "code");
+  });
+
+  it("detects HTML with many tags as code", () => {
+    const html = '<div class="app">\n  <span id="foo">text</span>\n  <button type="button">Click</button>\n  <a href="/link">Link</a>\n  <div class="inner">more</div>\n</div>';
+    assert.equal(detectContentType(html), "code");
+  });
+
+  it("does not detect short text with few tags as code", () => {
+    const text = 'Use the <code>esc()</code> function for safety.';
+    assert.equal(detectContentType(text), "text");
+  });
+
+  it("detects DOCTYPE with whitespace prefix as code", () => {
+    const html = '  \n  <!DOCTYPE html>\n<html>\n<body>hi</body>\n</html>';
+    assert.equal(detectContentType(html), "code");
+  });
 });
 
 // ── Danmaku: project name validation ──────────────────────────

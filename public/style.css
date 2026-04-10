@@ -437,6 +437,29 @@ body {
 }
 .gh-link:hover { color: var(--text) }
 
+/* Zen toggle */
+.zen-toggle {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.zen-toggle:hover { background: var(--surface-hover); color: var(--text); border-color: var(--muted) }
+.zen-toggle.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue) }
+.main-hd-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Dashboard toggle */
 .dash-toggle {
   width: 34px; height: 34px;
@@ -1119,3 +1142,74 @@ body {
   flex-shrink: 0;
 }
 .danmaku-send:hover { opacity: .85 }
+
+/* Zen Mode */
+.zen-exit {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,.8);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s ease;
+}
+.zen-exit:hover {
+  background: rgba(0,0,0,.7);
+  color: #fff;
+}
+.zen-exit-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app.zen .sidebar,
+.app.zen .sidebar-overlay,
+.app.zen .filter-bar,
+.app.zen .dashboard,
+.app.zen #danmaku-bar,
+.app.zen .scroll-nav {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s ease;
+}
+.app.zen .main-hd {
+  display: none;
+}
+.app.zen .sidebar {
+  width: 0;
+  min-width: 0;
+  border: none;
+  overflow: hidden;
+}
+.app.zen .main {
+  width: 100%;
+}
+.app.zen .msgs {
+  padding: 32px 48px;
+  background: var(--bg);
+}
+[data-theme="dark"] .app.zen .msgs {
+  background: #0a0b0f;
+}
+.app.zen .msg {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.app.zen .msg-text {
+  font-size: 14px;
+}
+.app.zen .danmaku-layer {
+  top: 0;
+}
