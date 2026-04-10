@@ -2,7 +2,7 @@ import { createServer } from "http";
 import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { homedir } from "os";
-import { randomBytes } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { fileURLToPath } from "url";
 import { SKIP_TYPES, BASE_SENSITIVE_PATTERNS, loadCustomPatterns, redactSensitive, parseLine, extractDisplayMessage, validateShareTokenEntries } from "./lib.js";
 
@@ -117,6 +117,8 @@ function resolveToken(token) {
 
 // ── Danmaku helpers ─────────────────────────────────────
 const DANMAKU_DIR = join(__dirname, "data", "danmaku");
+const DANMAKU_MAX_ENTRIES = 5000;
+const danmakuLocks = new Map();
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -134,6 +136,27 @@ async function saveDanmaku(project, data) {
   await mkdir(DANMAKU_DIR, { recursive: true });
   const safe = project.replace(/[/\\]/g, "_");
   await writeFile(join(DANMAKU_DIR, `${safe}.json`), JSON.stringify(data), "utf8");
+}
+
+// Per-project mutex to prevent read-modify-write races
+async function appendDanmaku(project, entry) {
+  while (danmakuLocks.has(project)) {
+    await new Promise(r => { danmakuLocks.set(project, r); });
+  }
+  danmakuLocks.set(project, null);
+  try {
+    const existing = await loadDanmaku(project);
+    existing.push(entry);
+    // Cap at DANMAKU_MAX_ENTRIES, drop oldest
+    if (existing.length > DANMAKU_MAX_ENTRIES) {
+      existing.splice(0, existing.length - DANMAKU_MAX_ENTRIES);
+    }
+    await saveDanmaku(project, existing);
+  } finally {
+    const waiters = danmakuLocks.get(project);
+    danmakuLocks.delete(project);
+    if (waiters) waiters();
+  }
 }
 
 // ── JSONL parsing & redaction (imported from lib.js) ────
@@ -486,14 +509,12 @@ const server = createServer(async (req, res) => {
     const content = escapeHtml(body.content.trim().slice(0, 200));
     const nickname = escapeHtml((body.nickname || "匿名").slice(0, 20));
     const entry = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      id: randomUUID(),
       nickname,
       content,
       timestamp: new Date().toISOString(),
     };
-    const existing = await loadDanmaku(project);
-    existing.push(entry);
-    await saveDanmaku(project, existing);
+    await appendDanmaku(project, entry);
     broadcast("danmaku", entry, project);
     res.writeHead(201, { "Content-Type": "application/json" });
     res.end(JSON.stringify(entry));

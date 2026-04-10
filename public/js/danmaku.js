@@ -100,7 +100,7 @@ function spawnDanmaku(item, isHistory) {
   el.style.animationDuration = duration + 's';
 
   if (isHistory) {
-    // Stagger history: random delay 0-3s
+    // Stagger history: random delay 0-3s; opacity 0 hides element during delay (animation starts at opacity 1)
     const delay = Math.random() * 3;
     el.style.animationDelay = delay + 's';
     el.style.opacity = '0';

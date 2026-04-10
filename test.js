@@ -917,12 +917,12 @@ describe("detectContentType", () => {
   });
 });
 
-// ── Danmaku: sessionId validation ──────────────────────────
+// ── Danmaku: project name validation ──────────────────────────
 
-describe("danmaku sessionId validation", () => {
+describe("danmaku project name validation", () => {
   const validPattern = /^[\w-]+$/;
 
-  it("accepts alphanumeric sessionIds", () => {
+  it("accepts alphanumeric project names", () => {
     assert.ok(validPattern.test("abc123"));
     assert.ok(validPattern.test("session-2026-04-10"));
     assert.ok(validPattern.test("a1b2c3d4e5f6"));
@@ -968,19 +968,19 @@ describe("danmaku sessionId validation", () => {
 describe("danmaku file persistence", () => {
   const testDir = join(tmpdir(), "cc-live-danmaku-test-" + Date.now());
 
-  async function loadDanmaku(sessionId) {
+  async function loadDanmaku(project) {
     try {
-      const content = await readFile(join(testDir, `${sessionId}.json`), "utf8");
+      const content = await readFile(join(testDir, `${project}.json`), "utf8");
       return JSON.parse(content);
     } catch { return []; }
   }
 
-  async function saveDanmaku(sessionId, data) {
+  async function saveDanmaku(project, data) {
     await mkdir(testDir, { recursive: true });
-    await writeFile(join(testDir, `${sessionId}.json`), JSON.stringify(data), "utf8");
+    await writeFile(join(testDir, `${project}.json`), JSON.stringify(data), "utf8");
   }
 
-  it("returns empty array for non-existent session", async () => {
+  it("returns empty array for non-existent project", async () => {
     const result = await loadDanmaku("nonexistent");
     assert.deepEqual(result, []);
   });
@@ -996,23 +996,23 @@ describe("danmaku file persistence", () => {
 
   it("appends entries correctly", async () => {
     const entries = [{ id: "1", nickname: "A", content: "first", timestamp: "t1" }];
-    await saveDanmaku("sess2", entries);
-    const existing = await loadDanmaku("sess2");
+    await saveDanmaku("proj2", entries);
+    const existing = await loadDanmaku("proj2");
     existing.push({ id: "2", nickname: "B", content: "second", timestamp: "t2" });
-    await saveDanmaku("sess2", existing);
-    const loaded = await loadDanmaku("sess2");
+    await saveDanmaku("proj2", existing);
+    const loaded = await loadDanmaku("proj2");
     assert.equal(loaded.length, 2);
     assert.equal(loaded[0].content, "first");
     assert.equal(loaded[1].content, "second");
   });
 
-  it("handles multiple sessions independently", async () => {
-    await saveDanmaku("sess-a", [{ id: "a1", content: "A" }]);
-    await saveDanmaku("sess-b", [{ id: "b1", content: "B" }]);
-    assert.equal((await loadDanmaku("sess-a")).length, 1);
-    assert.equal((await loadDanmaku("sess-b")).length, 1);
-    assert.equal((await loadDanmaku("sess-a"))[0].content, "A");
-    assert.equal((await loadDanmaku("sess-b"))[0].content, "B");
+  it("handles multiple projects independently", async () => {
+    await saveDanmaku("proj-a", [{ id: "a1", content: "A" }]);
+    await saveDanmaku("proj-b", [{ id: "b1", content: "B" }]);
+    assert.equal((await loadDanmaku("proj-a")).length, 1);
+    assert.equal((await loadDanmaku("proj-b")).length, 1);
+    assert.equal((await loadDanmaku("proj-a"))[0].content, "A");
+    assert.equal((await loadDanmaku("proj-b"))[0].content, "B");
   });
 
   it("returns empty array for corrupted JSON file", async () => {

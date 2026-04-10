@@ -171,14 +171,20 @@ nickModal.addEventListener('click', e => {
 });
 
 // Emoji picker toggle
-danmakuEmojiBtn.addEventListener('click', () => {
-  danmakuEmojiPicker.style.display = danmakuEmojiPicker.style.display === 'none' ? 'flex' : 'none';
-});
-
-// Close emoji picker on outside click
-document.addEventListener('click', e => {
-  if (!danmakuEmojiBtn.contains(e.target) && !danmakuEmojiPicker.contains(e.target)) {
-    danmakuEmojiPicker.style.display = 'none';
+let emojiCloseHandler = null;
+danmakuEmojiBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const isOpen = danmakuEmojiPicker.style.display === 'flex';
+  danmakuEmojiPicker.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen && !emojiCloseHandler) {
+    emojiCloseHandler = ev => {
+      if (!danmakuEmojiBtn.contains(ev.target) && !danmakuEmojiPicker.contains(ev.target)) {
+        danmakuEmojiPicker.style.display = 'none';
+        document.removeEventListener('click', emojiCloseHandler);
+        emojiCloseHandler = null;
+      }
+    };
+    setTimeout(() => document.addEventListener('click', emojiCloseHandler), 0);
   }
 });
 
@@ -188,8 +194,12 @@ function doSendDanmaku() {
   if (!content) return;
   const project = activeProject;
   if (!project) return;
-  sendDanmaku(project, getNickname(), content).catch(() => {});
   danmakuInput.value = '';
+  sendDanmaku(project, getNickname(), content).catch(() => {
+    danmakuInput.value = content;
+    danmakuInput.style.borderColor = '#e74c3c';
+    setTimeout(() => { danmakuInput.style.borderColor = ''; }, 1500);
+  });
 }
 
 danmakuSend.addEventListener('click', doSendDanmaku);
