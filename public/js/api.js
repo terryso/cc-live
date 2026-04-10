@@ -61,12 +61,8 @@ export function connect() {
     document.getElementById('title').textContent = info.project;
     renderList();
     loadMessages();
-    // Load danmaku history for all sessions in this project
-    for (const [sid, s] of sessions) {
-      if (s.projectName === info.project) {
-        loadDanmakuHistory(sid).then(items => { if (items.length) playbackHistory(items); }).catch(() => {});
-      }
-    }
+    // Load danmaku history for this project
+    loadDanmakuHistory(info.project).then(items => { if (items.length) playbackHistory(items); }).catch(() => {});
   });
   es.addEventListener('danmaku', e => {
     try { handleDanmakuEvent(JSON.parse(e.data)); } catch {}

@@ -1,4 +1,4 @@
-import { setFilterBar, setFilterCount, setActiveFilter, activeFilter, setLoadMessages, hasMoreHistory, isLoadingHistory, isShareView, sessions, activeProject, isDanmakuOn } from './state.js';
+import { setFilterBar, setFilterCount, setActiveFilter, activeFilter, setLoadMessages, hasMoreHistory, isLoadingHistory, isShareView, activeProject, isDanmakuOn } from './state.js';
 import { toggleThinking, applyFilter, revokeShare } from './render.js';
 import { connect, closeModal, copyShareUrl, createShare, loadMessages } from './api.js';
 import { getNickname, setNickname, sendDanmaku, toggleDanmaku, EMOJIS } from './danmaku.js';
@@ -186,19 +186,15 @@ document.addEventListener('click', e => {
 function doSendDanmaku() {
   const content = danmakuInput.value.trim();
   if (!content) return;
-  // Find an active session to attach to
-  let sessionId = null;
-  for (const [sid, s] of sessions) {
-    if (s.projectName === activeProject || !activeProject) { sessionId = sid; break; }
-  }
-  if (!sessionId) return;
-  sendDanmaku(sessionId, getNickname(), content).catch(() => {});
+  const project = activeProject;
+  if (!project) return;
+  sendDanmaku(project, getNickname(), content).catch(() => {});
   danmakuInput.value = '';
 }
 
 danmakuSend.addEventListener('click', doSendDanmaku);
 danmakuInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') doSendDanmaku();
+  if (e.key === 'Enter' && !e.isComposing) doSendDanmaku();
 });
 
 // Danmaku toggle

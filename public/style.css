@@ -880,6 +880,7 @@ body {
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
+  color: var(--text);
 }
 .danmaku-emoji-btn:hover { background: var(--surface-hover) }
 

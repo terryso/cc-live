@@ -122,16 +122,18 @@ function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-async function loadDanmaku(sessionId) {
+async function loadDanmaku(project) {
   try {
-    const content = await readFile(join(DANMAKU_DIR, `${sessionId}.json`), "utf8");
+    const safe = project.replace(/[/\\]/g, "_");
+    const content = await readFile(join(DANMAKU_DIR, `${safe}.json`), "utf8");
     return JSON.parse(content);
   } catch { return []; }
 }
 
-async function saveDanmaku(sessionId, data) {
+async function saveDanmaku(project, data) {
   await mkdir(DANMAKU_DIR, { recursive: true });
-  await writeFile(join(DANMAKU_DIR, `${sessionId}.json`), JSON.stringify(data), "utf8");
+  const safe = project.replace(/[/\\]/g, "_");
+  await writeFile(join(DANMAKU_DIR, `${safe}.json`), JSON.stringify(data), "utf8");
 }
 
 // ── JSONL parsing & redaction (imported from lib.js) ────
@@ -449,14 +451,11 @@ const server = createServer(async (req, res) => {
   // ── Danmaku API ───────────────────────────────────────
   if (req.method === "GET" && url.pathname === "/api/danmaku") {
     if (!local && !share) { res.writeHead(403); res.end(); return; }
-    const sessionId = url.searchParams.get("sessionId");
-    if (!sessionId || !/^[\w-]+$/.test(sessionId)) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "sessionId required" })); return; }
-    // Scope check: share users can only access their project's sessions
-    if (share) {
-      const s = sessions.get(sessionId);
-      if (!s || s.projectName !== share.project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
-    }
-    const danmaku = await loadDanmaku(sessionId);
+    const project = url.searchParams.get("project");
+    if (!project) { res.writeHead(400, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "project required" })); return; }
+    // Scope check: share users can only access their own project
+    if (share && share.project !== project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
+    const danmaku = await loadDanmaku(project);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(danmaku));
     return;
@@ -475,16 +474,15 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify({ error: "content required" }));
       return;
     }
-    if (!body.sessionId || !/^[\w-]+$/.test(body.sessionId)) {
+    // Determine project: share users use their token's project, local must provide it
+    const project = share ? share.project : body.project;
+    if (!project) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "sessionId required" }));
+      res.end(JSON.stringify({ error: "project required" }));
       return;
     }
-    // Scope check: share users can only send to their project's sessions
-    if (share) {
-      const s = sessions.get(body.sessionId);
-      if (!s || s.projectName !== share.project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
-    }
+    // Scope check: share users can only send to their own project
+    if (share && share.project !== project) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "access denied" })); return; }
     const content = escapeHtml(body.content.trim().slice(0, 200));
     const nickname = escapeHtml((body.nickname || "匿名").slice(0, 20));
     const entry = {
@@ -493,13 +491,10 @@ const server = createServer(async (req, res) => {
       content,
       timestamp: new Date().toISOString(),
     };
-    const existing = await loadDanmaku(body.sessionId);
+    const existing = await loadDanmaku(project);
     existing.push(entry);
-    await saveDanmaku(body.sessionId, existing);
-    // Determine project for broadcast
-    const s = sessions.get(body.sessionId);
-    const project = s ? s.projectName : (share ? share.project : null);
-    if (project) broadcast("danmaku", { sessionId: body.sessionId, ...entry }, project);
+    await saveDanmaku(project, existing);
+    broadcast("danmaku", entry, project);
     res.writeHead(201, { "Content-Type": "application/json" });
     res.end(JSON.stringify(entry));
     return;

@@ -26,23 +26,23 @@ export function setNickname(name) {
 }
 
 // ── Danmaku API ───────────────────────────────────────────
-export async function sendDanmaku(sessionId, nickname, content) {
+export async function sendDanmaku(project, nickname, content) {
   const params = new URLSearchParams(window.location.search);
   const t = params.get('t');
   const url = '/api/danmaku' + (t ? '?t=' + encodeURIComponent(t) : '');
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, nickname, content }),
+    body: JSON.stringify({ project, nickname, content }),
   });
   if (!res.ok) throw new Error('Failed to send danmaku');
   return res.json();
 }
 
-export async function loadDanmakuHistory(sessionId) {
+export async function loadDanmakuHistory(project) {
   const params = new URLSearchParams(window.location.search);
   const t = params.get('t');
-  const url = '/api/danmaku?sessionId=' + encodeURIComponent(sessionId) + (t ? '&t=' + encodeURIComponent(t) : '');
+  const url = '/api/danmaku?project=' + encodeURIComponent(project) + (t ? '&t=' + encodeURIComponent(t) : '');
   const res = await fetch(url);
   if (!res.ok) return [];
   return res.json();
