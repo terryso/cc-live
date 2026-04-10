@@ -61,7 +61,8 @@ function pickColor(nickname) {
 }
 
 function renderDanmakuItem(item, isHistory) {
-  if (!isDanmakuOn && !isHistory) {
+  if (!isDanmakuOn) {
+    if (isHistory) return; // skip history silently when toggle is off
     queue.push({ item, isHistory });
     return;
   }
@@ -80,7 +81,7 @@ function spawnDanmaku(item, isHistory) {
   const el = document.createElement('div');
   el.className = 'danmaku-item';
   const nick = document.createElement('span');
-  nick.className = 'danmaku-nick';
+  nick.className = 'danmaku-item-nick';
   nick.style.color = pickColor(item.nickname);
   nick.textContent = item.nickname;
   const text = document.createElement('span');

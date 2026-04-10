@@ -804,7 +804,7 @@ body {
   background: rgba(0,0,0,.55);
 }
 
-.danmaku-nick {
+.danmaku-item-nick {
   font-weight: 600;
   margin-right: 2px;
 }

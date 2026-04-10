@@ -331,12 +331,14 @@ function readBody(req, maxBytes = 10240) {
   return new Promise((resolve) => {
     const chunks = [];
     let size = 0;
+    let oversized = false;
     req.on("data", (c) => {
       size += c.length;
-      if (size > maxBytes) { req.destroy(); resolve(null); return; }
+      if (size > maxBytes) { oversized = true; req.destroy(); resolve(null); return; }
       chunks.push(c);
     });
     req.on("end", () => {
+      if (oversized) return;
       try { resolve(JSON.parse(Buffer.concat(chunks).toString())); }
       catch { resolve(null); }
     });
@@ -379,7 +381,12 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/shares") {
     if (!local) { res.writeHead(403); res.end(); return; }
     const body = await readBody(req);
-    if (!body || !body.project) {
+    if (body === null) {
+      res.writeHead(413, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "request body too large" }));
+      return;
+    }
+    if (!body.project) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "project required" }));
       return;
@@ -458,7 +465,12 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/api/danmaku") {
     if (!local && !share) { res.writeHead(403, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "forbidden" })); return; }
     const body = await readBody(req);
-    if (!body || !body.content || !body.content.trim()) {
+    if (body === null) {
+      res.writeHead(413, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "request body too large" }));
+      return;
+    }
+    if (!body.content || !body.content.trim()) {
       res.writeHead(400, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "content required" }));
       return;
