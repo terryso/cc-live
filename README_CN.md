@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="public/logo.svg" width="60" alt="CC Live Logo"/>
-
 # CC Live
 
 </div>
