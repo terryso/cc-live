@@ -156,6 +156,93 @@ function processUserText(text) {
   return text;
 }
 
+// ── Kill Feed Event Detection ────────────────────────────
+export const KILL_FEED_TYPES = {
+  CODE_SURGE: "code_surge",
+  BUG_FIX: "bug_fix",
+  TESTS_PASS: "tests_pass",
+  DEEP_DIVE: "deep_dive",
+};
+
+const CODE_SURGE_THRESHOLD = 50;
+const DEEP_DIVE_THRESHOLD = 5;
+const BUG_FIX_RE = /\b(fix|bug|patch|repair|resolve|hotfix|workaround)\b/i;
+const TEST_PASS_RE = /\b(\d+\s*tests?\s+pass|\d+\s+passing|all\s+tests?\s+pass|tests?\s*:?\s*ok|✓.*test)/i;
+
+/**
+ * Detect kill feed events from a display message.
+ * Mutates ctx.consecutiveReads for deep-dive tracking.
+ * Returns { type, icon, text } or null.
+ */
+export function detectKillFeedEvent(msg, ctx = { consecutiveReads: 0 }) {
+  if (!msg || !msg.display) return null;
+  const { role, display } = msg;
+
+  if (role === "assistant" && display.type === "blocks") {
+    for (const p of (display.parts || [])) {
+      if (p.type !== "tool_use") continue;
+      const ev = _detectToolUse(p, ctx);
+      if (ev) return ev;
+    }
+  }
+
+  if (role === "tool_response" && display.type === "blocks") {
+    for (const p of (display.parts || [])) {
+      if (p.type !== "tool_result") continue;
+      const ev = _detectToolResult(p);
+      if (ev) return ev;
+    }
+  }
+
+  return null;
+}
+
+function _detectToolUse(p, ctx) {
+  let args;
+  try { args = JSON.parse(p.args); } catch { return null; }
+  const name = p.toolName;
+
+  if (name === "Write" && args.content) {
+    const lines = args.content.split("\n").length;
+    ctx.consecutiveReads = 0;
+    if (lines >= CODE_SURGE_THRESHOLD) {
+      return { type: KILL_FEED_TYPES.CODE_SURGE, icon: "📝", text: `AI wrote ${lines} lines of code` };
+    }
+  }
+
+  if (name === "Edit") {
+    const total = (args.old_string || "").split("\n").length + (args.new_string || "").split("\n").length;
+    ctx.consecutiveReads = 0;
+    if (total >= 20) {
+      return { type: KILL_FEED_TYPES.CODE_SURGE, icon: "✏️", text: `AI edited ${total} lines` };
+    }
+  }
+
+  if (name === "Bash" && args.command && BUG_FIX_RE.test(args.command)) {
+    ctx.consecutiveReads = 0;
+    return { type: KILL_FEED_TYPES.BUG_FIX, icon: "🔥", text: "Fixing a bug..." };
+  }
+
+  if (name === "Read" || name === "Grep" || name === "Glob") {
+    ctx.consecutiveReads++;
+    if (ctx.consecutiveReads === DEEP_DIVE_THRESHOLD) {
+      return { type: KILL_FEED_TYPES.DEEP_DIVE, icon: "🔍", text: "Deep investigation in progress" };
+    }
+    return null;
+  }
+
+  ctx.consecutiveReads = 0;
+  return null;
+}
+
+function _detectToolResult(p) {
+  const text = p.text || "";
+  if (TEST_PASS_RE.test(text)) {
+    return { type: KILL_FEED_TYPES.TESTS_PASS, icon: "✅", text: "Tests passed!" };
+  }
+  return null;
+}
+
 export function extractDisplayMessage(raw, redactFn = redactSensitive) {
   const { type, uuid, timestamp, message, isSidechain, cwd } = raw;
 

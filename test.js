@@ -7,6 +7,7 @@ import {
   redactSensitive, parseLine, extractDisplayMessage,
   validateShareTokenEntries,
   BASE_SENSITIVE_PATTERNS, loadCustomPatterns,
+  detectKillFeedEvent, KILL_FEED_TYPES,
 } from "./lib.js";
 import { esc, isDiffContent, renderDiff, detectContentType } from "./public/js/utils.js";
 
@@ -1026,5 +1027,167 @@ describe("danmaku file persistence", () => {
   it("cleans up test directory", async () => {
     await rm(testDir, { recursive: true, force: true });
     assert.ok(true);
+  });
+});
+
+// ── Kill Feed Event Detection ─────────────────────────────
+
+describe("detectKillFeedEvent", () => {
+  const noRedact = (t) => t;
+
+  function makeMsg(role, parts) {
+    return { role, display: { type: "blocks", parts }, uuid: "test", timestamp: new Date().toISOString() };
+  }
+
+  it("returns null for null/undefined messages", () => {
+    assert.equal(detectKillFeedEvent(null), null);
+    assert.equal(detectKillFeedEvent(undefined), null);
+  });
+
+  it("returns null for messages without display", () => {
+    assert.equal(detectKillFeedEvent({ role: "assistant" }), null);
+  });
+
+  it("detects Code Surge from Write tool (≥50 lines)", () => {
+    const content = Array(55).fill("line of code").join("\n");
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Write", toolCallId: "1", args: JSON.stringify({ file_path: "/test.js", content }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    const ev = detectKillFeedEvent(msg, ctx);
+    assert.equal(ev.type, KILL_FEED_TYPES.CODE_SURGE);
+    assert.equal(ev.icon, "📝");
+    assert.ok(ev.text.includes("55"));
+  });
+
+  it("does not trigger Code Surge for small writes (<50 lines)", () => {
+    const content = Array(10).fill("line").join("\n");
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Write", toolCallId: "1", args: JSON.stringify({ file_path: "/test.js", content }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    assert.equal(detectKillFeedEvent(msg, ctx), null);
+  });
+
+  it("detects Code Surge from Edit tool (≥20 lines changed)", () => {
+    const old = Array(12).fill("old line").join("\n");
+    const nw = Array(12).fill("new line").join("\n");
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Edit", toolCallId: "2", args: JSON.stringify({ file_path: "/test.js", old_string: old, new_string: nw }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    const ev = detectKillFeedEvent(msg, ctx);
+    assert.equal(ev.type, KILL_FEED_TYPES.CODE_SURGE);
+    assert.equal(ev.icon, "✏️");
+  });
+
+  it("detects Bug Fix from Bash command with fix keyword", () => {
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Bash", toolCallId: "3", args: JSON.stringify({ command: "npm run fix-bug-123" }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    const ev = detectKillFeedEvent(msg, ctx);
+    assert.equal(ev.type, KILL_FEED_TYPES.BUG_FIX);
+    assert.equal(ev.icon, "🔥");
+  });
+
+  it("detects Bug Fix from Bash command with 'resolve' keyword", () => {
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Bash", toolCallId: "3b", args: JSON.stringify({ command: "node resolve-issue.js" }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    const ev = detectKillFeedEvent(msg, ctx);
+    assert.equal(ev.type, KILL_FEED_TYPES.BUG_FIX);
+  });
+
+  it("does not trigger Bug Fix for normal Bash commands", () => {
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Bash", toolCallId: "4", args: JSON.stringify({ command: "npm install" }) },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    assert.equal(detectKillFeedEvent(msg, ctx), null);
+  });
+
+  it("detects Tests Pass from tool result", () => {
+    const msg = makeMsg("tool_response", [
+      { type: "tool_result", toolUseId: "5", text: "3 tests passed\nAll good!" },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    const ev = detectKillFeedEvent(msg, ctx);
+    assert.equal(ev.type, KILL_FEED_TYPES.TESTS_PASS);
+    assert.equal(ev.icon, "✅");
+  });
+
+  it("detects Tests Pass with 'passing' keyword", () => {
+    const msg = makeMsg("tool_response", [
+      { type: "tool_result", toolUseId: "5b", text: "12 passing, 0 failing" },
+    ]);
+    const ev = detectKillFeedEvent(msg, { consecutiveReads: 0 });
+    assert.equal(ev.type, KILL_FEED_TYPES.TESTS_PASS);
+  });
+
+  it("does not trigger Tests Pass for non-test output", () => {
+    const msg = makeMsg("tool_response", [
+      { type: "tool_result", toolUseId: "6", text: "Server started on port 3000" },
+    ]);
+    assert.equal(detectKillFeedEvent(msg, { consecutiveReads: 0 }), null);
+  });
+
+  it("detects Deep Dive after 5 consecutive reads", () => {
+    const ctx = { consecutiveReads: 0 };
+    for (let i = 0; i < 4; i++) {
+      const msg = makeMsg("assistant", [
+        { type: "tool_use", toolName: "Read", toolCallId: `r${i}`, args: JSON.stringify({ file_path: `/f${i}.js` }) },
+      ]);
+      const ev = detectKillFeedEvent(msg, ctx);
+      assert.equal(ev, null, `Should not trigger on read ${i + 1}`);
+    }
+    // 5th read triggers
+    const msg5 = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Grep", toolCallId: "r4", args: JSON.stringify({ pattern: "TODO" }) },
+    ]);
+    const ev5 = detectKillFeedEvent(msg5, ctx);
+    assert.equal(ev5.type, KILL_FEED_TYPES.DEEP_DIVE);
+    assert.equal(ev5.icon, "🔍");
+  });
+
+  it("resets consecutive reads on Write", () => {
+    const ctx = { consecutiveReads: 4 };
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Write", toolCallId: "w1", args: JSON.stringify({ file_path: "/out.js", content: "x" }) },
+    ]);
+    detectKillFeedEvent(msg, ctx);
+    assert.equal(ctx.consecutiveReads, 0);
+  });
+
+  it("resets consecutive reads on Bash", () => {
+    const ctx = { consecutiveReads: 3 };
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Bash", toolCallId: "b1", args: JSON.stringify({ command: "echo hi" }) },
+    ]);
+    detectKillFeedEvent(msg, ctx);
+    assert.equal(ctx.consecutiveReads, 0);
+  });
+
+  it("handles malformed tool args gracefully", () => {
+    const msg = makeMsg("assistant", [
+      { type: "tool_use", toolName: "Write", toolCallId: "x", args: "not-valid-json{{{" },
+    ]);
+    const ctx = { consecutiveReads: 0 };
+    assert.equal(detectKillFeedEvent(msg, ctx), null);
+  });
+
+  it("ignores text-only assistant messages", () => {
+    const msg = makeMsg("assistant", [
+      { type: "text", text: "I'll fix that bug now." },
+    ]);
+    assert.equal(detectKillFeedEvent(msg, { consecutiveReads: 0 }), null);
+  });
+
+  it("ignores user messages", () => {
+    const msg = makeMsg("user", [
+      { type: "text", text: "please fix the login bug" },
+    ]);
+    assert.equal(detectKillFeedEvent(msg, { consecutiveReads: 0 }), null);
   });
 });
