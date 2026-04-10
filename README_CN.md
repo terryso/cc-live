@@ -1,8 +1,4 @@
-<div align="center">
-
 # CC Live
-
-</div>
 
 <img src="public/banner.svg" width="100%" alt="CC Live Banner"/>
 
