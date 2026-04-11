@@ -2,7 +2,7 @@ import { createServer } from "http";
 import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { homedir } from "os";
-import { randomBytes, randomUUID } from "crypto";
+import { randomBytes, randomUUID, createHash, createHmac, timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
 import { BASE_SENSITIVE_PATTERNS, loadCustomPatterns, parseLine, extractDisplayMessage, validateShareTokenEntries, listSessions as _listSessions, getProjectMessages as _getProjectMessages, listProjects as _listProjects, computeProjectStats as _computeProjectStats } from "./lib.js";
 
@@ -35,7 +35,7 @@ const ONE_WEEK_MS = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 const clients = new Map(); // clientId -> { res, token? }
 const watchedFiles = new Map(); // filepath -> { offset, sessionId, projectName, interval }
 const sessions = new Map(); // sessionId -> { projectName, messages[], active }
-const shareTokens = new Map(); // token -> { project, createdAt }
+const shareTokens = new Map(); // token -> { project, createdAt, passwordHash? }
 
 // ── SSE helpers ─────────────────────────────────────────
 function sseSend(res, event, data) {
@@ -106,6 +106,41 @@ async function saveShareTokens() {
 }
 
 // ── Share token helpers ─────────────────────────────────
+const COOKIE_SECRET = randomBytes(32).toString("hex");
+
+function hashPassword(pwd) {
+  return createHash("sha256").update(pwd).digest("hex");
+}
+
+function generatePassword() {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  let pwd = "";
+  const bytes = randomBytes(6);
+  for (let i = 0; i < 6; i++) pwd += chars[bytes[i] % chars.length];
+  return pwd;
+}
+
+function signToken(token, passwordHash) {
+  return createHmac("sha256", COOKIE_SECRET).update(token + ":" + passwordHash).digest("hex");
+}
+
+function getCookie(req, name) {
+  const cookies = req.headers.cookie;
+  if (!cookies) return null;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = cookies.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function verifyShareAuth(req, token, passwordHash) {
+  if (!passwordHash) return true; // no password set
+  const sig = getCookie(req, `cc-auth-${token}`);
+  if (!sig) return false;
+  const expected = signToken(token, passwordHash);
+  if (sig.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+}
+
 function generateToken() {
   return randomBytes(12).toString("hex"); // 24-char hex
 }
@@ -363,6 +398,15 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
+  // Password auth gate for share tokens
+  const needsAuth = !local && share && share.passwordHash && !verifyShareAuth(req, tokenParam, share.passwordHash);
+  if (needsAuth && url.pathname !== "/events" && url.pathname !== "/api/shares") {
+    // For API routes, return 401 JSON; auth endpoint handled separately above
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "password required" }));
+    return;
+  }
+
   // ── Share management API (local only) ─────────────────
   // List shares
   if (req.method === "GET" && url.pathname === "/api/shares") {
@@ -398,12 +442,13 @@ const server = createServer(async (req, res) => {
       return;
     }
     const token = generateToken();
-    shareTokens.set(token, { project: body.project, createdAt: Date.now() });
+    const password = body.password || generatePassword();
+    shareTokens.set(token, { project: body.project, createdAt: Date.now(), passwordHash: hashPassword(password) });
     saveShareTokens();
     const shareUrl = `/?t=${token}`;
     console.log(`  Share created: ${body.project} -> ${token}`);
     res.writeHead(201, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ token, url: shareUrl, project: body.project }));
+    res.end(JSON.stringify({ token, url: shareUrl, project: body.project, password }));
     return;
   }
 
@@ -422,6 +467,35 @@ const server = createServer(async (req, res) => {
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "token not found" }));
     }
+    return;
+  }
+
+  // Authenticate share (password check)
+  const authShareMatch = url.pathname.match(/^\/api\/shares\/([a-f0-9]+)\/auth$/);
+  if (req.method === "POST" && authShareMatch) {
+    const t = authShareMatch[1];
+    const shareInfo = shareTokens.get(t);
+    if (!shareInfo || !shareInfo.passwordHash) {
+      // Return same generic error for both missing token and no-password token
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "authentication failed" }));
+      return;
+    }
+    const body = await readBody(req);
+    if (!body || !body.password) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "password required" }));
+      return;
+    }
+    if (hashPassword(body.password) !== shareInfo.passwordHash) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "authentication failed" }));
+      return;
+    }
+    const sig = signToken(t, shareInfo.passwordHash);
+    res.setHeader("Set-Cookie", `cc-auth-${t}=${sig}; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true }));
     return;
   }
 
@@ -519,6 +593,13 @@ const server = createServer(async (req, res) => {
     if (tokenParam && !share) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "invalid token" }));
+      return;
+    }
+    // Password-protected share: check auth cookie
+    if (share && share.passwordHash && !verifyShareAuth(req, tokenParam, share.passwordHash)) {
+      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+      sseSend(res, "password-required", { token: tokenParam });
+      res.end();
       return;
     }
 

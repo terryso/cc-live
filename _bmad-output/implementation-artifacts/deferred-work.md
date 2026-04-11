@@ -48,3 +48,8 @@
 - [ ] Read-modify-write race on danmaku files — concurrent POST requests could lose entries. Use per-session mutex or append-only JSONL format. Low priority for current traffic levels.
 - [ ] SSE reconnect danmaku deduplication — after reconnect, history reload may replay danmaku already displayed. Add client-side event ID dedup set.
 - [ ] Mobile danmaku responsiveness — danmaku layer and input bar lack mobile-specific adjustments (smaller font, narrower touch targets).
+
+## Deferred from: review of spec-share-link-password (2026-04-11)
+
+- [ ] COOKIE_SECRET regenerated on server restart — invalidates all auth cookies, forcing users to re-enter passwords. Could persist secret to data/ file for stability.
+- [ ] No rate limiting on POST /api/shares/:token/auth — online brute-force feasible with 6-char password. Add per-IP rate limiting for production use.

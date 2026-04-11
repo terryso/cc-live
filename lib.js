@@ -107,7 +107,7 @@ export function validateShareTokenEntries(entries) {
   const valid = new Map();
   for (const [token, info] of Object.entries(entries)) {
     if (typeof token === "string" && info && typeof info.project === "string" && typeof info.createdAt === "number") {
-      valid.set(token, info);
+      valid.set(token, { project: info.project, createdAt: info.createdAt, passwordHash: info.passwordHash || null });
     }
   }
   return valid;

@@ -86,9 +86,10 @@ msgsEl.addEventListener('scroll', () => {
   }
 });
 
-// --- Modal buttons ---
-document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-document.getElementById('modalCopyBtn').addEventListener('click', copyShareUrl);
+// --- Modal close on overlay click ---
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
 
 // --- Danmaku UI ---
 const danmakuBar = document.getElementById('danmaku-bar');

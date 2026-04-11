@@ -1,6 +1,6 @@
 import {
   sessions, activeProject, loadedBefore, hasMoreHistory,
-  isShareView, shareProject, currentShareUrl, publicOrigin,
+  isShareView, shareProject, shareToken, currentShareUrl, publicOrigin,
   activeFilter, filterBar, filterCount,
   setIsShareView, setShareProject, setActiveProject,
   setPublicOrigin, setCurrentShareUrl, setLoadedBefore, setHasMoreHistory,
@@ -66,6 +66,11 @@ export function connect() {
     loadMessages();
     // Load danmaku history for this project
     loadDanmakuHistory(info.project).then(items => { if (items.length) playbackHistory(items); }).catch(() => {});
+  });
+  es.addEventListener('password-required', e => {
+    es.close();
+    const data = JSON.parse(e.data);
+    showPasswordGate(data.token);
   });
   es.addEventListener('danmaku', e => {
     try { handleDanmakuEvent(JSON.parse(e.data)); } catch {}
@@ -156,24 +161,127 @@ export async function loadMessages() {
 }
 
 // --- Share API ---
+function generateRandomPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  let pwd = '';
+  const arr = new Uint8Array(6);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < 6; i++) pwd += chars[arr[i] % chars.length];
+  return pwd;
+}
+
 export async function createShare(project) {
-  try {
-    const r = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) });
-    const data = await r.json();
-    if (!r.ok) { alert('Error: ' + data.error); return; }
-    const origin = publicOrigin || window.location.origin;
-    setCurrentShareUrl(origin + data.url);
-    document.getElementById('modalTitle').textContent = 'Share: ' + project;
-    document.getElementById('modalBody').innerHTML = '<div class="hint">Share this URL to let others view this project\'s sessions:</div><div class="share-url" id="shareUrlText">' + esc(currentShareUrl) + '</div><div class="hint">The project name is not visible in the URL. Revoke at any time from the sidebar.</div>';
-    document.getElementById('modal').style.display = 'flex';
-  } catch (e) { alert('Failed to create share: ' + e.message); }
+  // Show pre-creation modal with password
+  const randomPwd = generateRandomPassword();
+  document.getElementById('modalTitle').textContent = 'Share: ' + project;
+  document.getElementById('modalBody').innerHTML =
+    '<div class="hint">Set a password for this share link. Viewers will need to enter it before accessing the content.</div>' +
+    '<div class="share-password-row">' +
+      '<input type="text" id="sharePasswordInput" value="' + esc(randomPwd) + '" maxlength="20" spellcheck="false">' +
+      '<button type="button" class="share-password-toggle" id="sharePwdToggle" title="Show/Hide">👁</button>' +
+    '</div>' +
+    '<div class="btn-row" style="margin-top:16px">' +
+      '<button type="button" id="modalCloseBtn">Cancel</button>' +
+      '<button type="button" id="shareCreateBtn" class="primary">Create Share</button>' +
+    '</div>';
+  document.getElementById('modal').style.display = 'flex';
+
+  // Toggle password visibility
+  const pwdInput = document.getElementById('sharePasswordInput');
+  document.getElementById('sharePwdToggle').addEventListener('click', () => {
+    pwdInput.type = pwdInput.type === 'text' ? 'password' : 'text';
+  });
+
+  // Cancel
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+
+  // Create
+  document.getElementById('shareCreateBtn').addEventListener('click', async () => {
+    const password = pwdInput.value.trim();
+    if (!password) { pwdInput.style.borderColor = '#e74c3c'; return; }
+    try {
+      const r = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project, password }) });
+      const data = await r.json();
+      if (!r.ok) { alert('Error: ' + data.error); return; }
+      const origin = publicOrigin || window.location.origin;
+      setCurrentShareUrl(origin + data.url);
+      // Show result modal
+      document.getElementById('modalTitle').textContent = 'Share Created';
+      document.getElementById('modalBody').innerHTML =
+        '<div class="hint">Share this URL and password to let others view this project:</div>' +
+        '<div class="share-url" id="shareUrlText">' + esc(currentShareUrl) + '</div>' +
+        '<div class="share-pwd-display">' +
+          '<div class="label">Password</div>' +
+          '<div class="value">' + esc(data.password) + '</div>' +
+        '</div>' +
+        '<div class="hint">The project name is not visible in the URL. Revoke at any time from the sidebar.</div>';
+      // Update button row
+      const btnRow = document.getElementById('modalBody').parentElement.querySelector('.btn-row');
+      if (btnRow) btnRow.remove();
+      // Re-add the standard buttons
+      const newBtnRow = document.createElement('div');
+      newBtnRow.className = 'btn-row';
+      newBtnRow.innerHTML = '<button type="button" id="modalCloseBtn">Close</button><button type="button" id="modalCopyBtn" class="primary">Copy URL</button>';
+      document.getElementById('modal').querySelector('.modal').appendChild(newBtnRow);
+      document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+      document.getElementById('modalCopyBtn').addEventListener('click', copyShareUrl);
+    } catch (e) { alert('Failed to create share: ' + e.message); }
+  });
 }
 
 export function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
 export function copyShareUrl() {
   navigator.clipboard.writeText(currentShareUrl).then(() => {
-    document.getElementById('modalCopyBtn').textContent = 'Copied!';
-    setTimeout(() => { document.getElementById('modalCopyBtn').textContent = 'Copy URL'; }, 2000);
+    const btn = document.getElementById('modalCopyBtn');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy URL'; }, 2000); }
   });
+}
+
+export function showPasswordGate(token) {
+  const gate = document.getElementById('passwordGate');
+  const input = document.getElementById('passwordInput');
+  const error = document.getElementById('passwordError');
+  const submit = document.getElementById('passwordSubmit');
+  gate.style.display = 'flex';
+  input.value = '';
+  error.style.display = 'none';
+  input.focus();
+
+  submit.onclick = async () => {
+    const pwd = input.value.trim();
+    if (!pwd) { input.style.borderColor = '#e74c3c'; return; }
+    error.style.display = 'none';
+    submit.textContent = 'Verifying...';
+    submit.disabled = true;
+    try {
+      const r = await fetch('/api/shares/' + token + '/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        error.textContent = data.error || 'Wrong password';
+        error.style.display = 'block';
+        input.style.borderColor = '#e74c3c';
+        submit.textContent = 'Unlock';
+        submit.disabled = false;
+        input.select();
+        return;
+      }
+      // Success — reload page to reconnect SSE with cookie
+      window.location.reload();
+    } catch (e) {
+      error.textContent = 'Network error';
+      error.style.display = 'block';
+      submit.textContent = 'Unlock';
+      submit.disabled = false;
+    }
+  };
+
+  input.onkeydown = e => {
+    if (e.key === 'Enter') submit.click();
+    input.style.borderColor = '';
+  };
 }

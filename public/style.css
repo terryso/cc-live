@@ -1218,3 +1218,111 @@ body {
 .app.zen .danmaku-layer {
   top: 0;
 }
+
+/* Password gate */
+.password-gate {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.password-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px 32px;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+.password-icon { font-size: 36px; margin-bottom: 12px }
+.password-card h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 6px }
+.password-hint { font-size: 13px; color: var(--dim); margin-bottom: 20px; line-height: 1.5 }
+.password-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  text-align: center;
+  outline: none;
+  transition: border-color var(--transition);
+  box-sizing: border-box;
+  letter-spacing: 2px;
+}
+.password-input:focus { border-color: var(--blue) }
+.password-error {
+  color: var(--red);
+  font-size: 12px;
+  margin-top: 8px;
+}
+.password-submit {
+  margin-top: 16px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+.password-submit:hover { opacity: .9 }
+
+/* Share password field */
+.share-password-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.share-password-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.share-password-row input:focus { border-color: var(--blue) }
+.share-password-toggle {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1;
+}
+.share-password-toggle:hover { background: var(--surface-hover) }
+.share-pwd-display {
+  margin: 12px 0;
+  padding: 10px 14px;
+  background: var(--yellow-soft);
+  border: 1px solid var(--yellow);
+  border-radius: 8px;
+  text-align: left;
+}
+.share-pwd-display .label { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: .5px }
+.share-pwd-display .value {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--text);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}

@@ -78,6 +78,17 @@
 </div>
 
 <button type="button" class="zen-exit" id="zenExit" aria-label="Exit zen mode">Press F or Esc to exit</button>
+
+<div id="passwordGate" class="password-gate" style="display:none">
+  <div class="password-card">
+    <div class="password-icon">🔒</div>
+    <h2>Password Required</h2>
+    <p class="password-hint">Enter the password to access this shared session</p>
+    <input type="password" id="passwordInput" class="password-input" placeholder="Enter password" autocomplete="off">
+    <div id="passwordError" class="password-error" style="display:none"></div>
+    <button type="button" id="passwordSubmit" class="password-submit">Unlock</button>
+  </div>
+</div>
 <div id="nickModal" class="modal-overlay" style="display:none">
   <div class="modal" style="max-width:340px">
     <h2>Change Nickname</h2>
@@ -94,10 +105,6 @@
   <div class="modal">
     <h2 id="modalTitle">Share Project</h2>
     <div id="modalBody"></div>
-    <div class="btn-row">
-      <button type="button" id="modalCloseBtn">Close</button>
-      <button type="button" id="modalCopyBtn" class="primary">Copy URL</button>
-    </div>
   </div>
 </div>
 <script type="module" src="js/main.js"></script>
