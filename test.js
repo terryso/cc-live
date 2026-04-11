@@ -5,7 +5,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import {
   redactSensitive, parseLine, extractDisplayMessage,
-  validateShareTokenEntries,
+  validateShareTokenEntries, hashPassword, generatePassword,
   BASE_SENSITIVE_PATTERNS, loadCustomPatterns,
   listSessions, getProjectMessages, listProjects, computeProjectStats,
   formatDuration, formatModel,
@@ -719,6 +719,87 @@ describe("validateShareTokenEntries", () => {
     const result = validateShareTokenEntries({});
     assert.equal(result.size, 0);
     assert.ok(result instanceof Map);
+  });
+
+  it("preserves passwordHash from persisted entries", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: "/foo", createdAt: 1000, passwordHash: "abc123def" },
+    });
+    assert.equal(result.get("abc").passwordHash, "abc123def");
+  });
+
+  it("defaults passwordHash to null when missing", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: "/foo", createdAt: 1000 },
+    });
+    assert.equal(result.get("abc").passwordHash, null);
+  });
+
+  it("defaults passwordHash to null when falsy", () => {
+    const result = validateShareTokenEntries({
+      abc: { project: "/foo", createdAt: 1000, passwordHash: "" },
+    });
+    assert.equal(result.get("abc").passwordHash, null);
+  });
+});
+
+// ── hashPassword ─────────────────────────────────────────
+
+describe("hashPassword", () => {
+  it("produces a 64-char hex string", () => {
+    const result = hashPassword("test");
+    assert.equal(result.length, 64);
+    assert.ok(/^[a-f0-9]{64}$/.test(result));
+  });
+
+  it("is deterministic — same input produces same output", () => {
+    assert.equal(hashPassword("hello"), hashPassword("hello"));
+  });
+
+  it("different inputs produce different outputs", () => {
+    assert.notEqual(hashPassword("password1"), hashPassword("password2"));
+  });
+
+  it("handles empty string", () => {
+    const result = hashPassword("");
+    assert.equal(result.length, 64);
+  });
+});
+
+// ── generatePassword ────────────────────────────────────
+
+describe("generatePassword", () => {
+  it("produces a 6-character string", () => {
+    for (let i = 0; i < 20; i++) {
+      assert.equal(generatePassword().length, 6);
+    }
+  });
+
+  it("only contains valid characters", () => {
+    const valid = new Set("abcdefghijkmnpqrstuvwxyz23456789");
+    for (let i = 0; i < 20; i++) {
+      const pwd = generatePassword();
+      for (const ch of pwd) {
+        assert.ok(valid.has(ch), `Invalid char: ${ch}`);
+      }
+    }
+  });
+
+  it("excludes ambiguous characters (0, o, l, 1)", () => {
+    const ambiguous = new Set(["0", "o", "l", "1"]);
+    for (let i = 0; i < 50; i++) {
+      const pwd = generatePassword();
+      for (const ch of pwd) {
+        assert.ok(!ambiguous.has(ch), `Ambiguous char: ${ch}`);
+      }
+    }
+  });
+
+  it("generates different passwords across calls", () => {
+    const passwords = new Set();
+    for (let i = 0; i < 20; i++) passwords.add(generatePassword());
+    // With 6 chars from ~30 char alphabet, collisions in 20 tries are astronomically unlikely
+    assert.ok(passwords.size > 15, "Expected mostly unique passwords");
   });
 });
 

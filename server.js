@@ -2,9 +2,9 @@ import { createServer } from "http";
 import { readFile, writeFile, mkdir, stat, readdir } from "fs/promises";
 import { join, dirname } from "path";
 import { homedir } from "os";
-import { randomBytes, randomUUID, createHash, createHmac, timingSafeEqual } from "crypto";
+import { randomBytes, randomUUID, createHmac, timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
-import { BASE_SENSITIVE_PATTERNS, loadCustomPatterns, parseLine, extractDisplayMessage, validateShareTokenEntries, listSessions as _listSessions, getProjectMessages as _getProjectMessages, listProjects as _listProjects, computeProjectStats as _computeProjectStats } from "./lib.js";
+import { BASE_SENSITIVE_PATTERNS, loadCustomPatterns, parseLine, extractDisplayMessage, validateShareTokenEntries, hashPassword, generatePassword, listSessions as _listSessions, getProjectMessages as _getProjectMessages, listProjects as _listProjects, computeProjectStats as _computeProjectStats } from "./lib.js";
 
 // ── Load .env ───────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -107,18 +107,6 @@ async function saveShareTokens() {
 
 // ── Share token helpers ─────────────────────────────────
 const COOKIE_SECRET = randomBytes(32).toString("hex");
-
-function hashPassword(pwd) {
-  return createHash("sha256").update(pwd).digest("hex");
-}
-
-function generatePassword() {
-  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
-  let pwd = "";
-  const bytes = randomBytes(6);
-  for (let i = 0; i < 6; i++) pwd += chars[bytes[i] % chars.length];
-  return pwd;
-}
 
 function signToken(token, passwordHash) {
   return createHmac("sha256", COOKIE_SECRET).update(token + ":" + passwordHash).digest("hex");

@@ -1,5 +1,20 @@
 // ── Pure functions extracted from server.js for testability ──
 
+import { createHash, randomBytes } from "crypto";
+
+// Password helpers
+export function hashPassword(pwd) {
+  return createHash("sha256").update(pwd).digest("hex");
+}
+
+export function generatePassword() {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  let pwd = "";
+  const bytes = randomBytes(6);
+  for (let i = 0; i < 6; i++) pwd += chars[bytes[i] % chars.length];
+  return pwd;
+}
+
 // JSONL parsing
 export const SKIP_TYPES = new Set(["queue-operation", "file-history-snapshot", "change", "last-prompt"]);
 
