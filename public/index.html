@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
+<div class="app"><script>if(location.search.includes('t='))document.currentScript.parentElement.classList.add('share-view');</script>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <div class="sidebar" id="sidebar">
     <div class="sidebar-hd">
@@ -45,7 +45,12 @@
           <div class="share-status" id="shareStatusWrap">
             <span class="share-dot" id="shareDot"></span>
             <span class="share-status-text" id="shareStatus">Connecting...</span>
-            <span class="share-msg-count" id="shareMsgCount"></span>
+            <span class="share-detail-sep" id="shareViewerSep" style="display:none">·</span>
+            <span class="share-viewers" id="shareViewers" style="display:none"></span>
+            <span class="share-detail-sep" id="shareMsgSep" style="display:none">·</span>
+            <span class="share-msg-count" id="shareMsgCount" style="display:none"></span>
+            <span class="share-detail-sep" id="shareModelSep" style="display:none">·</span>
+            <span class="share-model" id="shareModel" style="display:none"></span>
           </div>
         </div>
       </div>

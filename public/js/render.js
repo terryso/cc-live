@@ -306,15 +306,23 @@ export function updateShareStatus() {
   const live = _devTimers.has(activeProject);
   const ss = document.getElementById('shareStatus');
   const sd = document.getElementById('shareDot');
-  const mc = document.getElementById('shareMsgCount');
   if (!ss) return;
+  const statusText = live ? '直播中' : '空闲';
   if (live) {
-    ss.textContent = '直播中';
     if (sd) sd.style.background = 'var(--green)';
   } else {
-    ss.textContent = '空闲';
     if (sd) sd.style.background = 'var(--dim)';
   }
+  // Mobile: preserve viewer count in status text
+  if (window.innerWidth <= 768) {
+    const ve = document.getElementById('shareViewers');
+    const viewerText = ve && ve.style.display !== 'none' ? ve.textContent : '';
+    if (viewerText) {
+      ss.textContent = statusText + ' · ' + viewerText;
+      return;
+    }
+  }
+  ss.textContent = statusText;
 }
 
 // --- Project list ---

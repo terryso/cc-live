@@ -14,13 +14,48 @@ import { esc } from './utils.js';
 import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
 import { updateDashboard } from './dashboard.js';
 
+let _shareModel = null;
+
+function _showShareDetails() {
+  const ve = document.getElementById('shareViewers');
+  const ms = document.getElementById('shareMsgSep');
+  const mc = document.getElementById('shareMsgCount');
+  // Only show msg count when both viewer data and msg content are ready
+  if (ve && ve.style.display !== 'none' && mc && mc.textContent) {
+    if (ms) ms.style.display = '';
+    if (mc) mc.style.display = '';
+  }
+}
+
 function updateShareMsgCount() {
-  if (!isShareView) return;
+  if (!isShareView || !activeProject) return;
   const el = document.getElementById('shareMsgCount');
   if (!el) return;
-  const msgEls = document.querySelectorAll('#msgs .msg');
-  const visible = [...msgEls].filter(m => m.style.display !== 'none').length;
-  el.textContent = visible + (visible === 1 ? ' msg' : ' msgs');
+  let total = 0;
+  for (const [, s] of sessions) {
+    if (s.projectName === activeProject && !s.isSubagent) {
+      total += s.messageCount || s.messages.length;
+    }
+  }
+  if (total === 0) {
+    total = document.querySelectorAll('#msgs .msg').length;
+  }
+  if (total > 0) {
+    el.textContent = total + (total === 1 ? ' msg' : ' msgs');
+  }
+  _showShareDetails();
+}
+
+function updateShareModelDisplay() {
+  if (!isShareView) return;
+  const el = document.getElementById('shareModel');
+  const sep = document.getElementById('shareModelSep');
+  if (!el) return;
+  if (_shareModel) {
+    el.textContent = _shareModel;
+    el.style.display = '';
+    if (sep) sep.style.display = '';
+  }
 }
 
 
@@ -43,6 +78,7 @@ export function connect() {
     });
     renderList();
     if (activeProject) loadMessages();
+    updateShareMsgCount();
   });
   es.addEventListener('session-new', e => {
     const s = JSON.parse(e.data);
@@ -58,7 +94,8 @@ export function connect() {
     s.messageCount = (s.messageCount || 0) + 1;
     if(s.messages.length>500) s.messages=s.messages.slice(-300);
     markActive(s.projectName);
-    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateDashboard(); updateShareMsgCount(); }
+    if(m.display && m.display.model) _shareModel = m.display.model;
+    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateDashboard(); updateShareMsgCount(); updateShareModelDisplay(); }
   });
   es.addEventListener('share-info', e => {
     const info = JSON.parse(e.data);
@@ -91,8 +128,21 @@ export function connect() {
       if (typeof count === 'number') {
         const text = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`;
         document.getElementById('status').textContent = text;
-        const mc = document.getElementById('shareMsgCount');
-        if (mc) mc.textContent = count === 1 ? '1 viewing' : `${count} viewing`;
+        const ve = document.getElementById('shareViewers');
+        const vs = document.getElementById('shareViewerSep');
+        if (ve) {
+          ve.textContent = count === 1 ? '1 viewing' : `${count} viewing`;
+          ve.style.display = '';
+          if (vs) vs.style.display = '';
+        }
+        _showShareDetails();
+        // Mobile: show viewer count in status text since individual elements are hidden
+        if (isShareView && window.innerWidth <= 768) {
+          const ss = document.getElementById('shareStatus');
+          const live = _devTimers.has(activeProject);
+          const statusText = live ? '直播中' : '空闲';
+          ss.textContent = statusText + ' · ' + (count === 1 ? '1 viewing' : count + ' viewing');
+        }
         updateShareStatus();
       }
     } catch {}
@@ -180,6 +230,13 @@ export async function loadMessages() {
       if (!hasMatch) { setIsLoadingHistory(false); loadMessages(); return; }
     }
     if (isFirstPage) {
+      // Track model from most recent historical message
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].display && msgs[i].display.model) {
+          _shareModel = msgs[i].display.model;
+          break;
+        }
+      }
       const last = el.lastElementChild;
       if (last) {
         last.scrollIntoView({ block: 'end', behavior: 'instant' });
@@ -199,6 +256,7 @@ export async function loadMessages() {
   setIsLoadingHistory(false);
   updateDashboard();
   updateShareMsgCount();
+  updateShareModelDisplay();
 }
 
 // --- Share API ---

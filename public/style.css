@@ -415,7 +415,7 @@ body {
 /* Main */
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative }
 .main-hd {
-  padding: 14px 24px;
+  padding: 10px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   display: flex;
@@ -917,13 +917,42 @@ body {
 .app.share-view .main {
   width: 100%;
 }
+.app.share-view .msg {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.app.share-view .session-divider {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.app.share-view .danmaku-bar {
+  width: 100%;
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  margin-bottom: 12px;
+  padding: 8px 18px;
+}
+
+/* Compact header for share view */
+.app.share-view .main-hd {
+  padding: 8px 24px;
+}
+.app.share-view .main-hd .path {
+  display: none;
+}
 
 /* Share status below project name */
 .share-status {
   display: none;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 2px;
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
@@ -949,8 +978,21 @@ body {
   color: var(--dim);
   font-family: var(--mono);
   white-space: nowrap;
-  padding-left: 6px;
-  border-left: 1px solid var(--border);
+}
+.share-detail-sep {
+  color: var(--dim);
+  font-size: 11px;
+}
+.share-model {
+  font-size: 11px;
+  color: var(--purple);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.share-viewers {
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
 }
 
 /* Markdown rendered content */
@@ -1035,6 +1077,13 @@ body {
   .sidebar.open { transform: translateX(0) }
   .mobile-menu-btn { display: flex }
   .msgs { padding: 16px }
+  .app.share-view .share-msg-count,
+  .app.share-view .share-model,
+  .app.share-view .share-viewers,
+  .app.share-view #shareMsgSep,
+  .app.share-view #shareModelSep,
+  .app.share-view #shareViewerSep { display: none !important; }
+  .app.share-view .zen-toggle { display: none !important; }
   .main-hd { padding: 12px 16px }
   .scroll-nav { right: 16px }
 }
