@@ -68,7 +68,7 @@ body {
   transition: background var(--transition), color var(--transition);
 }
 
-.app { display: flex; height: 100vh; overflow: hidden }
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden }
 
 /* Sidebar */
 .sidebar {
@@ -83,6 +83,7 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
 }
 .sidebar-hd {
@@ -933,8 +934,7 @@ body {
   margin-left: auto;
   margin-right: auto;
   border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: var(--radius);
   margin-bottom: 12px;
   padding: 8px 18px;
 }
