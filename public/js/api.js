@@ -8,7 +8,7 @@ import {
 } from './state.js';
 import {
   renderList, appendMsg, addExpandButtons, applyFilter,
-  showFilterBar, markActive, selectProject, createMsgEl
+  showFilterBar, markActive, selectProject, createMsgEl, updateShareStatus
 } from './render.js';
 import { esc } from './utils.js';
 import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
@@ -91,8 +91,9 @@ export function connect() {
       if (typeof count === 'number') {
         const text = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`;
         document.getElementById('status').textContent = text;
-        const ss = document.getElementById('shareStatus');
-        if (ss) ss.textContent = text;
+        const mc = document.getElementById('shareMsgCount');
+        if (mc) mc.textContent = count === 1 ? '1 viewing' : `${count} viewing`;
+        updateShareStatus();
       }
     } catch {}
   });
@@ -109,9 +110,7 @@ export function connect() {
   es.onopen=()=>{
     document.getElementById('status').textContent='Live';
     document.getElementById('dot').style.background='var(--green)';
-    const ss=document.getElementById('shareStatus'),sd=document.getElementById('shareDot');
-    if(ss)ss.textContent='Live';
-    if(sd)sd.style.background='var(--green)';
+    updateShareStatus();
     renderList();
   };
 }

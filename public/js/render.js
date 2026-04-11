@@ -295,8 +295,26 @@ export function markActive(project) {
   _devTimers.set(project, setTimeout(() => {
     _devTimers.delete(project);
     renderList();
+    updateShareStatus();
   }, DEV_TIMEOUT));
   renderList();
+  updateShareStatus();
+}
+
+export function updateShareStatus() {
+  if (!isShareView || !activeProject) return;
+  const live = _devTimers.has(activeProject);
+  const ss = document.getElementById('shareStatus');
+  const sd = document.getElementById('shareDot');
+  const mc = document.getElementById('shareMsgCount');
+  if (!ss) return;
+  if (live) {
+    ss.textContent = '直播中';
+    if (sd) sd.style.background = 'var(--green)';
+  } else {
+    ss.textContent = '空闲';
+    if (sd) sd.style.background = 'var(--dim)';
+  }
 }
 
 // --- Project list ---

@@ -918,13 +918,13 @@ body {
   width: 100%;
 }
 
-/* Share status in header */
+/* Share status below project name */
 .share-status {
   display: none;
   align-items: center;
   gap: 6px;
-  margin-right: 8px;
-  flex-shrink: 1;
+  margin-top: 4px;
+  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
 }
