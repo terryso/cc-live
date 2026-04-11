@@ -110,6 +110,16 @@ export async function loadMessages() {
       el.insertBefore(indicator, el.firstChild);
     }
     const r = await fetch('/api/project-messages?' + params);
+    if (!r.ok && r.status === 401 && isShareView) {
+      // Cookie lost or invalid — re-show password gate
+      const indicator = el.querySelector('.loading-indicator');
+      if (indicator) indicator.remove();
+      const params2 = new URLSearchParams(window.location.search);
+      const t2 = params2.get('t');
+      if (t2) showPasswordGate(t2);
+      setIsLoadingHistory(false);
+      return;
+    }
     const msgs = await r.json();
     // Remove loading indicator
     const indicator = el.querySelector('.loading-indicator');

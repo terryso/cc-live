@@ -398,10 +398,9 @@ const server = createServer(async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-  // Password auth gate for share tokens
+  // Password auth gate for share tokens (API routes only — frontend must always be served)
   const needsAuth = !local && share && share.passwordHash && !verifyShareAuth(req, tokenParam, share.passwordHash);
-  if (needsAuth && url.pathname !== "/events" && url.pathname !== "/api/shares") {
-    // For API routes, return 401 JSON; auth endpoint handled separately above
+  if (needsAuth && url.pathname.startsWith("/api/") && !url.pathname.startsWith("/api/shares")) {
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "password required" }));
     return;
