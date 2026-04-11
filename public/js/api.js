@@ -14,6 +14,15 @@ import { esc } from './utils.js';
 import { handleDanmakuEvent, playbackHistory, loadDanmakuHistory } from './danmaku.js';
 import { updateDashboard } from './dashboard.js';
 
+function updateShareMsgCount() {
+  if (!isShareView) return;
+  const el = document.getElementById('shareMsgCount');
+  if (!el) return;
+  const msgEls = document.querySelectorAll('#msgs .msg');
+  const visible = [...msgEls].filter(m => m.style.display !== 'none').length;
+  el.textContent = visible + (visible === 1 ? ' msg' : ' msgs');
+}
+
 
 // --- SSE ---
 export function getSSEUrl() {
@@ -49,7 +58,7 @@ export function connect() {
     s.messageCount = (s.messageCount || 0) + 1;
     if(s.messages.length>500) s.messages=s.messages.slice(-300);
     markActive(s.projectName);
-    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateDashboard(); }
+    if(activeProject && s.projectName === activeProject) { appendMsg(m); updateDashboard(); updateShareMsgCount(); }
   });
   es.addEventListener('share-info', e => {
     const info = JSON.parse(e.data);
@@ -59,6 +68,7 @@ export function connect() {
       return;
     }
     setIsShareView(true);
+    document.querySelector('.app').classList.add('share-view');
     setShareProject(info.project);
     setActiveProject(info.project);
     document.getElementById('title').textContent = info.project;
@@ -76,13 +86,34 @@ export function connect() {
     try { handleDanmakuEvent(JSON.parse(e.data)); } catch {}
   });
   es.addEventListener('viewer_count', e => {
-    try { const { count } = JSON.parse(e.data); if (typeof count === 'number') document.getElementById('status').textContent = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`; } catch {}
+    try {
+      const { count } = JSON.parse(e.data);
+      if (typeof count === 'number') {
+        const text = count === 1 ? 'Live · 1 viewing' : `Live · ${count} viewing`;
+        document.getElementById('status').textContent = text;
+        const ss = document.getElementById('shareStatus');
+        if (ss) ss.textContent = text;
+      }
+    } catch {}
   });
   es.addEventListener('public-origin', e => {
     try { setPublicOrigin(JSON.parse(e.data)); } catch { setPublicOrigin(e.data); }
   });
-  es.onerror=()=>{document.getElementById('status').textContent='Reconnecting...';document.getElementById('dot').style.background='var(--red)'};
-  es.onopen=()=>{document.getElementById('status').textContent='Live';document.getElementById('dot').style.background='var(--green)';renderList()};
+  es.onerror=()=>{
+    document.getElementById('status').textContent='Reconnecting...';
+    document.getElementById('dot').style.background='var(--red)';
+    const ss=document.getElementById('shareStatus'),sd=document.getElementById('shareDot');
+    if(ss)ss.textContent='Reconnecting...';
+    if(sd)sd.style.background='var(--red)';
+  };
+  es.onopen=()=>{
+    document.getElementById('status').textContent='Live';
+    document.getElementById('dot').style.background='var(--green)';
+    const ss=document.getElementById('shareStatus'),sd=document.getElementById('shareDot');
+    if(ss)ss.textContent='Live';
+    if(sd)sd.style.background='var(--green)';
+    renderList();
+  };
 }
 
 // --- Messages API ---
@@ -168,6 +199,7 @@ export async function loadMessages() {
   } catch { const indicator = el.querySelector('.loading-indicator'); if (indicator) indicator.remove(); setIsLoadingHistory(false); }
   setIsLoadingHistory(false);
   updateDashboard();
+  updateShareMsgCount();
 }
 
 // --- Share API ---

@@ -220,6 +220,12 @@ danmakuToggle.addEventListener('click', () => {
 // --- Connect ---
 setLoadMessages(loadMessages);
 initDashboard();
+
+// Share view: hide sidebar, show status in header
+if (isShareView) {
+  document.querySelector('.app').classList.add('share-view');
+}
+
 connect();
 
 // --- Zen Mode ---

@@ -908,6 +908,51 @@ body {
 .sidebar-overlay.active { display: block }
 
 /* Mobile responsive */
+
+/* Share view: hide sidebar, full-width layout */
+.app.share-view .sidebar,
+.app.share-view .sidebar-overlay {
+  display: none !important;
+}
+.app.share-view .main {
+  width: 100%;
+}
+
+/* Share status in header */
+.share-status {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.app.share-view .share-status {
+  display: flex;
+}
+.share-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 6px var(--green);
+  flex-shrink: 0;
+}
+.share-status-text {
+  font-size: 12px;
+  color: var(--green);
+  white-space: nowrap;
+}
+.share-msg-count {
+  font-size: 11px;
+  color: var(--dim);
+  font-family: var(--mono);
+  white-space: nowrap;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
 /* Markdown rendered content */
 .msg-text.md-render { white-space: normal }
 .msg-text.md-render p { margin: 0 0 8px }
