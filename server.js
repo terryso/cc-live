@@ -4,7 +4,7 @@ import { join, dirname } from "path";
 import { homedir } from "os";
 import { randomBytes, randomUUID, createHmac, timingSafeEqual } from "crypto";
 import { fileURLToPath } from "url";
-import { BASE_SENSITIVE_PATTERNS, loadCustomPatterns, parseLine, extractDisplayMessage, validateShareTokenEntries, hashPassword, generatePassword, listSessions as _listSessions, getProjectMessages as _getProjectMessages, listProjects as _listProjects, computeProjectStats as _computeProjectStats } from "./lib.js";
+import { BASE_SENSITIVE_PATTERNS, loadCustomPatterns, parseLine, extractDisplayMessage, validateShareTokenEntries, hashPassword, listSessions as _listSessions, getProjectMessages as _getProjectMessages, listProjects as _listProjects, computeProjectStats as _computeProjectStats } from "./lib.js";
 
 // ── Load .env ───────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -400,7 +400,7 @@ const server = createServer(async (req, res) => {
     if (!local) { res.writeHead(403); res.end(); return; }
     const list = [];
     for (const [token, info] of shareTokens) {
-      list.push({ token, project: info.project, createdAt: info.createdAt });
+      list.push({ token, project: info.project, createdAt: info.createdAt, hasPassword: !!info.passwordHash });
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(list));
@@ -429,13 +429,15 @@ const server = createServer(async (req, res) => {
       return;
     }
     const token = generateToken();
-    const password = body.password || generatePassword();
-    shareTokens.set(token, { project: body.project, createdAt: Date.now(), passwordHash: hashPassword(password) });
+    const password = body.password || null;
+    shareTokens.set(token, { project: body.project, createdAt: Date.now(), passwordHash: password ? hashPassword(password) : null });
     saveShareTokens();
     const shareUrl = `/?t=${token}`;
-    console.log(`  Share created: ${body.project} -> ${token}`);
+    console.log(`  Share created: ${body.project} -> ${token}${password ? " (password-protected)" : " (public)"}`);
     res.writeHead(201, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ token, url: shareUrl, project: body.project, password }));
+    const result = { token, url: shareUrl, project: body.project };
+    if (password) result.password = password;
+    res.end(JSON.stringify(result));
     return;
   }
 

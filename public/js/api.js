@@ -16,6 +16,16 @@ import { updateDashboard } from './dashboard.js';
 
 let _shareModel = null;
 
+// Persist share passwords locally so creator can always see them
+function getSharePasswords() {
+  try { return JSON.parse(localStorage.getItem('cc-share-pwds') || '{}'); } catch { return {}; }
+}
+function saveSharePassword(token, password) {
+  const map = getSharePasswords();
+  map[token] = password;
+  localStorage.setItem('cc-share-pwds', JSON.stringify(map));
+}
+
 function _showShareDetails() {
   const ve = document.getElementById('shareViewers');
   const ms = document.getElementById('shareMsgSep');
@@ -270,23 +280,64 @@ function generateRandomPassword() {
 }
 
 export async function createShare(project) {
-  // Show pre-creation modal with password
+  // Check if a share already exists for this project
+  try {
+    const r = await fetch('/api/shares');
+    const shares = await r.json();
+    const existing = shares.find(s => s.project === project);
+    if (existing) {
+      // Show existing share URL directly
+      const origin = publicOrigin || window.location.origin;
+      const url = origin + '/?t=' + existing.token;
+      setCurrentShareUrl(url);
+      // Attach locally cached password
+      existing.password = getSharePasswords()[existing.token] || null;
+      showShareResult(existing, false);
+      return;
+    }
+  } catch {}
+
+  // No existing share — show creation modal
+  // Clean up any stray btn-row from previous result modal
+  const modalInner = document.getElementById('modal').querySelector('.modal');
+  for (const el of modalInner.querySelectorAll(':scope > .btn-row')) el.remove();
+  // Show pre-creation modal — default to public access
   const randomPwd = generateRandomPassword();
   document.getElementById('modalTitle').textContent = 'Share: ' + project;
   document.getElementById('modalBody').innerHTML =
-    '<div class="hint">Set a password for this share link. Viewers will need to enter it before accessing the content.</div>' +
-    '<div class="share-password-row">' +
-      '<input type="text" id="sharePasswordInput" value="' + esc(randomPwd) + '" maxlength="20" spellcheck="false">' +
-      '<button type="button" class="share-password-toggle" id="sharePwdToggle" title="Show/Hide">👁</button>' +
+    '<div class="share-toggle-row">' +
+      '<label class="share-toggle-label">' +
+        '<input type="checkbox" id="sharePasswordToggle">' +
+        '<span>Require password</span>' +
+      '</label>' +
     '</div>' +
+    '<div class="share-password-section" id="sharePasswordSection" style="display:none">' +
+      '<div class="hint">Set a password. Viewers will need to enter it before accessing the content.</div>' +
+      '<div class="share-password-row">' +
+        '<input type="text" id="sharePasswordInput" value="' + esc(randomPwd) + '" maxlength="20" spellcheck="false">' +
+        '<button type="button" class="share-password-toggle" id="sharePwdToggle" title="Show/Hide">👁</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="hint" id="sharePublicHint">Anyone with the link can view this project.</div>' +
     '<div class="btn-row" style="margin-top:16px">' +
       '<button type="button" id="modalCloseBtn">Cancel</button>' +
       '<button type="button" id="shareCreateBtn" class="primary">Create Share</button>' +
     '</div>';
   document.getElementById('modal').style.display = 'flex';
 
-  // Toggle password visibility
+  const pwdToggle = document.getElementById('sharePasswordToggle');
+  const pwdSection = document.getElementById('sharePasswordSection');
+  const publicHint = document.getElementById('sharePublicHint');
   const pwdInput = document.getElementById('sharePasswordInput');
+
+  // Toggle password section visibility
+  pwdToggle.addEventListener('change', () => {
+    const show = pwdToggle.checked;
+    pwdSection.style.display = show ? 'block' : 'none';
+    publicHint.style.display = show ? 'none' : 'block';
+  });
+
+  // Toggle password field visibility
   document.getElementById('sharePwdToggle').addEventListener('click', () => {
     pwdInput.type = pwdInput.type === 'text' ? 'password' : 'text';
   });
@@ -296,36 +347,47 @@ export async function createShare(project) {
 
   // Create
   document.getElementById('shareCreateBtn').addEventListener('click', async () => {
+    const usePassword = pwdToggle.checked;
     const password = pwdInput.value.trim();
-    if (!password) { pwdInput.style.borderColor = '#e74c3c'; return; }
+    if (usePassword && !password) { pwdInput.style.borderColor = '#e74c3c'; return; }
     try {
-      const r = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project, password }) });
+      const body = { project };
+      if (usePassword) body.password = password;
+      const r = await fetch('/api/shares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await r.json();
       if (!r.ok) { alert('Error: ' + data.error); return; }
       const origin = publicOrigin || window.location.origin;
       setCurrentShareUrl(origin + data.url);
-      // Show result modal
-      document.getElementById('modalTitle').textContent = 'Share Created';
-      document.getElementById('modalBody').innerHTML =
-        '<div class="hint">Share this URL and password to let others view this project:</div>' +
-        '<div class="share-url" id="shareUrlText">' + esc(currentShareUrl) + '</div>' +
-        '<div class="share-pwd-display">' +
-          '<div class="label">Password</div>' +
-          '<div class="value">' + esc(data.password) + '</div>' +
-        '</div>' +
-        '<div class="hint">The project name is not visible in the URL. Revoke at any time from the sidebar.</div>';
-      // Update button row
-      const btnRow = document.getElementById('modalBody').parentElement.querySelector('.btn-row');
-      if (btnRow) btnRow.remove();
-      // Re-add the standard buttons
-      const newBtnRow = document.createElement('div');
-      newBtnRow.className = 'btn-row';
-      newBtnRow.innerHTML = '<button type="button" id="modalCloseBtn">Close</button><button type="button" id="modalCopyBtn" class="primary">Copy URL</button>';
-      document.getElementById('modal').querySelector('.modal').appendChild(newBtnRow);
-      document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-      document.getElementById('modalCopyBtn').addEventListener('click', copyShareUrl);
+      // Cache password locally
+      if (data.password) saveSharePassword(data.token, data.password);
+      showShareResult(data, true);
     } catch (e) { alert('Failed to create share: ' + e.message); }
   });
+}
+
+function showShareResult(data, isNew) {
+  const title = isNew ? 'Share Created' : 'Share: ' + data.project;
+  const hasPwd = !!data.password;
+  let pwdDisplay = '';
+  if (hasPwd) {
+    pwdDisplay = '<div class="share-pwd-display">' +
+        '<div class="label">Password</div>' +
+        '<div class="value">' + esc(data.password) + '</div>' +
+      '</div>';
+  }
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML =
+    '<div class="hint">' + (hasPwd ? 'Share this URL and password to let others view this project:' : 'Share this URL to let others view this project:') + '</div>' +
+    '<div class="share-url" id="shareUrlText">' + esc(currentShareUrl) + '</div>' +
+    pwdDisplay +
+    '<div class="hint">The project name is not visible in the URL. Revoke at any time from the sidebar.</div>' +
+    '<div class="btn-row" style="margin-top:16px">' +
+      '<button type="button" id="modalCloseBtn">Close</button>' +
+      '<button type="button" id="modalCopyBtn" class="primary">Copy URL</button>' +
+    '</div>';
+  document.getElementById('modal').style.display = 'flex';
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalCopyBtn').addEventListener('click', copyShareUrl);
 }
 
 export function closeModal() { document.getElementById('modal').style.display = 'none'; }

@@ -249,6 +249,7 @@ export function appendMsg(m) {
 // --- UI helpers ---
 export function addExpandButtons(container) {
   container.querySelectorAll('.collapsible.collapsed').forEach(el => {
+    if (el.nextElementSibling && el.nextElementSibling.classList.contains('expand-btn')) return;
     if (el.scrollHeight <= el.clientHeight + 10) {
       el.classList.remove('collapsed');
       return;

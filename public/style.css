@@ -1270,9 +1270,7 @@ body {
 .app.zen .sidebar-overlay,
 .app.zen .dashboard,
 .app.zen .scroll-nav {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .4s ease;
+  display: none !important;
 }
 .app.zen .sidebar {
   opacity: 0;
@@ -1374,6 +1372,24 @@ body {
 .password-submit:hover { opacity: .9 }
 
 /* Share password field */
+.share-toggle-row {
+  margin-bottom: 12px;
+}
+.share-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+}
+.share-toggle-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
 .share-password-row {
   display: flex;
   align-items: center;
